@@ -4,6 +4,7 @@ import rasterio
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
+import tensorflow
 from keras.models import Sequential
 import folium
 import branca.colormap as cm
@@ -18,7 +19,7 @@ import joblib
 import tensorflow as tf
 
 # Define paths (update these to your actual paths)
-DATA_DIR = "/content/drive/MyDrive/Colab Notebooks/dataForML"
+DATA_DIR = "C:\\Users\\dtfygu876\\PycharmProjects\\ML_project\\data"
 SHAPEFILE_PATH = os.path.join(DATA_DIR, "Points.shp")
 RASTER_PATHS = [
     os.path.join(DATA_DIR, "Curvature.tif"),
@@ -31,7 +32,7 @@ RASTER_PATHS = [
 # You would need to save the model to a file after training.
 # For demonstration, let's assume a dummy path. Replace with your actual saved model path.
 # Example: joblib.dump(rf, 'random_forest_model.pkl') after training
-MODEL_PATH = "/content/drive/MyDrive/flood_project/random_forest_model.pkl" # Replace with actual path
+MODEL_PATH = "C:\\Users\\dtfygu876\\PycharmProjects\\ML_project\\models\\random_forest_model.pkl" # Replace with actual path
 MODEL_TYPE = 'random_forest' # Or 'deep_learning'
 
 # Function to load spatial data
@@ -121,7 +122,7 @@ if static_gdf is not None and trained_model is not None:
 
     # Placeholder for future real-time data simulation or input
     st.header("Real-time Data Simulation")
-    simulate_real_time = st.checkbox("Simulate Real-time Data", value=False)
+    simulate_real_time = st.checkbox("Simulate Real-time Data", value=False, key="simulate_checkbox")
 
     # Placeholder for prediction and mapping logic
     st.header("Flood Susceptibility Map")
@@ -286,7 +287,7 @@ def extract_model_features(preprocessed_data_array, point_locations):
 if static_gdf is not None and trained_model is not None:
 
     st.header("Real-time Data Simulation")
-    simulate_real_time = st.checkbox("Simulate Real-time Data", value=False)
+    simulate_real_time = st.checkbox("Simulate Real-time Data", value=False, key="simulate_real_time_checkbox_1")
 
     real_time_features_at_points = None # Initialize variable
 
@@ -407,7 +408,7 @@ def generate_real_time_predictions(real_time_features_df, trained_model, static_
 if static_gdf is not None and trained_model is not None:
 
     st.header("Real-time Data Simulation")
-    simulate_real_time = st.checkbox("Simulate Real-time Data", value=False)
+    simulate_real_time = st.checkbox("Simulate Real-time Data", value=False, key="simulate_real_time_checkbox_2")
 
     real_time_features_at_points = None # Initialize variable
 
