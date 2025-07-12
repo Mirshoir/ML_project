@@ -18,23 +18,15 @@ from sklearn.model_selection import train_test_split
 import joblib
 import tensorflow as tf
 
-# Define paths (update these to your actual paths)
-DATA_DIR = "C:\\Users\\dtfygu876\\PycharmProjects\\ML_project\\data"
+DATA_DIR = "data"
 SHAPEFILE_PATH = os.path.join(DATA_DIR, "Points.shp")
 RASTER_PATHS = [
     os.path.join(DATA_DIR, "Curvature.tif"),
     os.path.join(DATA_DIR, "DTDrainage.tif"),
     os.path.join(DATA_DIR, "DTRiver.tif"),
-    # Add other static rasters used by your model if any
 ]
-# Define the path to your trained model file
-# Assuming the Random Forest model saved in cell 21m7-O2PHx-C or fWNwFCBozQPG
-# You would need to save the model to a file after training.
-# For demonstration, let's assume a dummy path. Replace with your actual saved model path.
-# Example: joblib.dump(rf, 'random_forest_model.pkl') after training
-MODEL_PATH = "C:\\Users\\dtfygu876\\PycharmProjects\\ML_project\\models\\random_forest_model.pkl" # Replace with actual path
-MODEL_TYPE = 'random_forest' # Or 'deep_learning'
-
+MODEL_PATH = "models/random_forest_model.pkl"
+MODEL_TYPE = 'random_forest'  # or 'deep_learning' if applicable
 # Function to load spatial data
 @st.cache_data
 def load_spatial_data(shapefile_path, raster_paths):
