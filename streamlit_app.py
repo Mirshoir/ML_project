@@ -4,6 +4,7 @@ import rasterio
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
+import tensorflow
 from keras.models import Sequential
 import folium
 import branca.colormap as cm
