@@ -1,6 +1,7 @@
 streamlit
 geopandas
 rasterio
+tensorflow
 rioxarray
 xarray
 scikit-learn
