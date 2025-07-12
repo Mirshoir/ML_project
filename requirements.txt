@@ -12,3 +12,7 @@ branca
 streamlit-folium
 joblib
 gdown
+tensorflow
+scikit-learn
+pandas
+streamlit
