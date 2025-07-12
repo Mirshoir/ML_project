@@ -5,6 +5,7 @@ tensorflow
 rioxarray
 xarray
 scikit-learn
+tensorflow
 pandas
 numpy
 folium
@@ -12,6 +13,15 @@ branca
 streamlit-folium
 joblib
 gdown
+streamlit>=1.26.0
+tensorflow>=2.13.0
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+geopandas
+rasterio
 tensorflow
 scikit-learn
 pandas
