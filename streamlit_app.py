@@ -18,7 +18,6 @@ from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 import joblib
-import contextlib
 import warnings
 from matplotlib.colors import LinearSegmentedColormap
 import folium
@@ -26,9 +25,8 @@ from streamlit_folium import folium_static
 from folium.plugins import Draw
 import branca.colormap as cm
 
-# Suppress warnings
+# Suppress warnings - REMOVED THE PROBLEMATIC LINE
 warnings.filterwarnings('ignore')
-st.set_option('deprecation.showPyplotGlobalUse', False)
 
 # Initialize session state variables
 if 'study_area_map' not in st.session_state:
@@ -48,7 +46,7 @@ if 'model_metrics' not in st.session_state:
 if 'training_data' not in st.session_state:
     st.session_state.training_data = None
 
-# App title and description
+# Rest of your code remains the same...# App title and description
 st.title("🌊 Flood Susceptibility Analysis System")
 st.markdown("""
 This application performs flood susceptibility analysis using geospatial data and machine learning models. 
