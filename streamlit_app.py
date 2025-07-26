@@ -14,6 +14,7 @@ import time
 import geopandas as gpd
 import contextily as ctx
 import io
+from datetime import datetime, timedelta
 
 # Configure page
 st.set_page_config(
@@ -60,6 +61,17 @@ st.markdown("""
         border-radius: 5px;
         font-weight: bold;
     }
+    .warning {
+        background-color: #ffebee;
+        border-left: 4px solid #f44336;
+        padding: 15px;
+        border-radius: 0 8px 8px 0;
+        margin: 15px 0;
+    }
+    .alert-level-1 { background-color: #4caf50; color: white; padding: 5px 10px; border-radius: 4px; }
+    .alert-level-2 { background-color: #ffc107; color: black; padding: 5px 10px; border-radius: 4px; }
+    .alert-level-3 { background-color: #ff9800; color: white; padding: 5px 10px; border-radius: 4px; }
+    .alert-level-4 { background-color: #f44336; color: white; padding: 5px 10px; border-radius: 4px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -74,11 +86,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Create tabs
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🏙️ Overview", 
     "🤖 Model Comparison", 
     "🌍 Spatial Transferability",
-    "🔍 Model Interpretation"
+    "🔍 Model Interpretation",
+    "⏱️ Real-time Forecast"
 ])
 
 # Overview Tab
@@ -421,6 +434,150 @@ with tab4:
     </div>
     """, unsafe_allow_html=True)
 
+# Real-time Flood Forecasting Tab
+with tab5:
+    st.markdown('<div class="subheader">Real-time Flood Forecasting System</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="info-box">
+        <p>Combining hydrodynamic and data-driven models for operational flood forecasting</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Generate flood alert data
+    np.random.seed(42)
+    n_locations = 50
+    locations = pd.DataFrame({
+        'lat': np.random.uniform(37.7, 37.82, n_locations),
+        'lon': np.random.uniform(-122.5, -122.37, n_locations),
+        'alert_level': np.random.choice([1, 2, 3, 4], n_locations, p=[0.5, 0.3, 0.15, 0.05]),
+        'name': [f"Location {i+1}" for i in range(n_locations)]
+    })
+    
+    # Alert level descriptions
+    alert_levels = {
+        1: ("Low", "No flooding expected", "alert-level-1"),
+        2: ("Moderate", "Minor street flooding possible", "alert-level-2"),
+        3: ("High", "Significant flooding expected", "alert-level-3"),
+        4: ("Extreme", "Severe flooding - take action", "alert-level-4")
+    }
+    
+    # Current alert status
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+    st.markdown(f"""
+    <div class="model-card">
+        <h3>Current Flood Alert Status</h3>
+        <p>Last updated: {current_time}</p>
+        <div style="display: flex; gap: 15px; margin-top: 15px;">
+            <div style="flex: 1; text-align: center; padding: 10px; background-color: #4caf50; color: white; border-radius: 8px;">
+                <h4>Low</h4>
+                <p>25 locations</p>
+            </div>
+            <div style="flex: 1; text-align: center; padding: 10px; background-color: #ffc107; border-radius: 8px;">
+                <h4>Moderate</h4>
+                <p>15 locations</p>
+            </div>
+            <div style="flex: 1; text-align: center; padding: 10px; background-color: #ff9800; color: white; border-radius: 8px;">
+                <h4>High</h4>
+                <p>7 locations</p>
+            </div>
+            <div style="flex: 1; text-align: center; padding: 10px; background-color: #f44336; color: white; border-radius: 8px;">
+                <h4>Extreme</h4>
+                <p>3 locations</p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Map visualization
+    st.subheader("Flood Alert Map")
+    fig = px.scatter_mapbox(
+        locations,
+        lat="lat",
+        lon="lon",
+        color="alert_level",
+        color_continuous_scale=px.colors.diverging.RdYlBu_r,
+        range_color=(1, 4),
+        size_max=15,
+        zoom=11,
+        hover_name="name",
+        hover_data={"alert_level": True, "lat": False, "lon": False}
+    )
+    
+    fig.update_layout(
+        mapbox_style="carto-positron",
+        height=500,
+        margin={"r":0,"t":0,"l":0,"b":0}
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Forecast controls
+    st.subheader("Forecast Parameters")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        rainfall = st.slider("Rainfall Intensity (mm/hr)", 0, 100, 30, 5)
+    with col2:
+        duration = st.slider("Storm Duration (hours)", 1, 72, 24)
+    with col3:
+        antecedent = st.select_slider("Antecedent Soil Moisture", 
+                                    options=["Dry", "Normal", "Wet"], 
+                                    value="Normal")
+    
+    # Generate forecast data
+    st.subheader("Flood Probability Forecast")
+    hours = list(range(1, 25))
+    base_prob = np.clip(0.1 + (rainfall/100) * 0.7 + (0.1 if antecedent=="Wet" else 0), 0, 0.95)
+    probabilities = [base_prob * (1 + 0.05*h) for h in hours]
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=hours,
+        y=probabilities,
+        mode='lines+markers',
+        name='Flood Probability',
+        line=dict(color='#1e3c72', width=3)
+    ))
+    
+    # Add alert thresholds
+    fig.add_hline(y=0.3, line_dash="dash", line_color="orange", annotation_text="Moderate Alert")
+    fig.add_hline(y=0.6, line_dash="dash", line_color="red", annotation_text="High Alert")
+    
+    fig.update_layout(
+        title="24-Hour Flood Probability Forecast",
+        xaxis_title="Hours from Now",
+        yaxis_title="Flood Probability",
+        height=400
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Alert explanation
+    max_prob = max(probabilities)
+    if max_prob > 0.6:
+        alert_class = "alert-level-4"
+        alert_text = "EXTREME FLOOD RISK"
+        recommendation = "Evacuate high-risk areas. Activate emergency response plans."
+    elif max_prob > 0.3:
+        alert_class = "alert-level-3"
+        alert_text = "HIGH FLOOD RISK"
+        recommendation = "Prepare sandbags. Move vehicles to higher ground."
+    else:
+        alert_class = "alert-level-1"
+        alert_text = "LOW FLOOD RISK"
+        recommendation = "Monitor conditions. Clear drainage systems."
+    
+    st.markdown(f"""
+    <div class="warning">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div class="{alert_class}" style="font-size: 1.2em; font-weight: bold; flex-shrink: 0;">
+                {alert_text}
+            </div>
+            <div>
+                <p style="margin: 0;">{recommendation}</p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 # Footer
 st.markdown("---")
-st.caption("© 2023 Urban Flood Modeling Research | [Part 1: Data-Driven Model for Mapping Urban Flooding](https://medium.com/hydroinformatics/data-driven-model-for-mapping-urban-flooding-1-d182a1e2dc9)")
+st.caption("© 2023 Urban Flood Modeling Research | [Part 1: Data-Driven Model for Mapping Urban Flooding](https://medium.com/hydroinformatics/data-driven-model-for-mapping-urban-flooding-1-d182a1e2dc9) | [Part 2: Real-time Forecasting System](https://medium.com/hydroinformatics/real-time-flood-forecasting-system-2-efda1b2a4f3d)")
