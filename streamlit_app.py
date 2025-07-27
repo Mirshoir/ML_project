@@ -372,16 +372,30 @@ with tab4:
         st.markdown("**Feature Dependence**")
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        # Fixed: Use integer indices instead of string names
-        shap.plots.scatter(
-            shap_values_positive[:, imperviousness_idx], 
-            color=shap_values_positive.data[:, elevation_idx],
-            show=False
+        # Fixed: Create our own scatter plot with colorbar
+        # Get the data we need
+        imperviousness_vals = X_test.iloc[:100, imperviousness_idx]
+        shap_vals = shap_values_positive.values[:, imperviousness_idx]
+        elevation_vals = X_test.iloc[:100, elevation_idx]
+        
+        # Create the scatter plot
+        scatter = ax.scatter(
+            imperviousness_vals,
+            shap_vals,
+            c=elevation_vals,
+            cmap='viridis',
+            alpha=0.7
         )
-        plt.xlabel("Imperviousness (%)")
-        plt.ylabel("SHAP Value (Impact on Flood Probability)")
-        plt.title("How Imperviousness Affects Flood Risk")
-        plt.colorbar(label='Elevation (m)')
+        
+        # Add colorbar with label
+        cbar = plt.colorbar(scatter, ax=ax)
+        cbar.set_label('Elevation (m)')
+        
+        # Set labels and title
+        ax.set_xlabel("Imperviousness (%)")
+        ax.set_ylabel("SHAP Value (Impact on Flood Probability)")
+        ax.set_title("How Imperviousness Affects Flood Risk")
+        
         st.pyplot(fig)
         
         st.markdown("""
