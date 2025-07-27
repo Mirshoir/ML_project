@@ -24,6 +24,7 @@ import zipfile
 import tempfile
 import os
 import warnings
+from shapely.geometry import Point
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -158,14 +159,21 @@ if 'model_results' not in st.session_state:
     st.session_state['model_results'] = None
 if 'cnn_model' not in st.session_state:
     st.session_state['cnn_model'] = None
+if 'label_column' not in st.session_state:
+    st.session_state['label_column'] = 'label'
 
 # Data Processing Functions
 @st.cache_data
-def extract_raster_values(shapefile, raster_files):
+def extract_raster_values(shapefile, raster_files, label_col):
     """Extract raster values at point locations"""
     try:
         # Read shapefile
         points = gpd.read_file(shapefile)
+        
+        # Check if label column exists
+        if label_col not in points.columns:
+            st.error(f"Label column '{label_col}' not found in shapefile!")
+            return None
         
         # Initialize columns
         raster_names = ['DEM', 'Slope', 'Aspect', 'Curvature', 'TWI', 
@@ -359,8 +367,19 @@ with tab1:
                         raster_name = os.path.splitext(raster.name)[0]
                         raster_files[raster_name] = raster_path
                     
+                    # Let user select label column
+                    points_preview = gpd.read_file(shp_path)
+                    available_columns = [col for col in points_preview.columns if col != 'geometry']
+                    
+                    if available_columns:
+                        label_col = st.selectbox("Select the flood indicator column", available_columns)
+                        st.session_state['label_column'] = label_col
+                    else:
+                        st.error("No attribute columns found in shapefile!")
+                        st.stop()
+                    
                     # Process data
-                    points_data = extract_raster_values(shp_path, raster_files)
+                    points_data = extract_raster_values(shp_path, raster_files, label_col)
                     
                     if points_data is not None and not points_data.empty:
                         st.session_state['points_data'] = points_data
@@ -391,10 +410,16 @@ with tab1:
     if st.session_state['points_data'] is None:
         st.warning("Using sample data. Upload your own data for real analysis.")
         
-        # Generate sample data
+        # Generate sample data with mock geometry in Berlin
         np.random.seed(42)
         data_size = 1000
-        flood_data = pd.DataFrame({
+        
+        # Flooded locations
+        flood_lons = np.random.uniform(13.0, 13.8, data_size)
+        flood_lats = np.random.uniform(52.3, 52.7, data_size)
+        flood_geometry = [Point(lon, lat) for lon, lat in zip(flood_lons, flood_lats)]
+        
+        flood_data = {
             'DEM': np.random.normal(30, 10, data_size),
             'Slope': np.random.gamma(1.5, 2, data_size),
             'TWI': np.random.uniform(4, 12, data_size),
@@ -407,9 +432,15 @@ with tab1:
             'AP': np.random.gamma(2, 10, data_size),
             'FP': np.random.uniform(0, 10, data_size),
             'label': 1  # Flooded locations
-        })
+        }
+        flood_gdf = gpd.GeoDataFrame(flood_data, geometry=flood_geometry, crs="EPSG:4326")
         
-        non_flood_data = pd.DataFrame({
+        # Non-flooded locations
+        non_flood_lons = np.random.uniform(13.0, 13.8, data_size)
+        non_flood_lats = np.random.uniform(52.3, 52.7, data_size)
+        non_flood_geometry = [Point(lon, lat) for lon, lat in zip(non_flood_lons, non_flood_lats)]
+        
+        non_flood_data = {
             'DEM': np.random.normal(50, 15, data_size),
             'Slope': np.random.gamma(3, 1, data_size),
             'TWI': np.random.uniform(2, 8, data_size),
@@ -422,20 +453,27 @@ with tab1:
             'AP': np.random.gamma(1, 5, data_size),
             'FP': np.random.uniform(0, 5, data_size),
             'label': 0  # Non-flooded locations
-        })
+        }
+        non_flood_gdf = gpd.GeoDataFrame(non_flood_data, geometry=non_flood_geometry, crs="EPSG:4326")
         
-        points_data = pd.concat([flood_data, non_flood_data])
+        points_data = gpd.GeoDataFrame(pd.concat([flood_gdf, non_flood_gdf], ignore_index=True), crs="EPSG:4326")
         st.session_state['points_data'] = points_data
+        st.session_state['label_column'] = 'label'
     
     points_data = st.session_state['points_data']
+    label_col = st.session_state['label_column']
     
     # Display data
     st.subheader("Processed Data Preview")
     st.dataframe(points_data.head())
     
-    st.markdown(f"**Total locations:** {len(points_data)}")
-    st.markdown(f"**Flooded locations:** {len(points_data[points_data['label'] == 1])}")
-    st.markdown(f"**Non-flooded locations:** {len(points_data[points_data['label'] == 0])}")
+    # Check if label column exists in the DataFrame
+    if label_col in points_data.columns:
+        st.markdown(f"**Total locations:** {len(points_data)}")
+        st.markdown(f"**Flooded locations:** {len(points_data[points_data[label_col] == 1])}")
+        st.markdown(f"**Non-flooded locations:** {len(points_data[points_data[label_col] == 0])}")
+    else:
+        st.error(f"Label column '{label_col}' not found in processed data!")
     
     # Feature distributions
     st.markdown('<div class="subheader">Feature Distributions</div>', unsafe_allow_html=True)
@@ -455,23 +493,26 @@ with tab1:
         'FP': 'Frequency of Extreme Events'
     }
     
-    st.subheader("Feature Comparison: Flooded vs Non-Flooded Areas")
-    fig, axes = plt.subplots(4, 3, figsize=(15, 15))
-    features = list(display_names.keys())
-    
-    for i, feature in enumerate(features):
-        if feature in points_data.columns:
-            ax = axes[i//3, i%3]
-            sns.boxplot(x='label', y=feature, data=points_data, ax=ax)
-            ax.set_title(display_names[feature])
-            ax.set_xticklabels(['Non-Flooded', 'Flooded'])
-    
-    plt.tight_layout()
-    st.pyplot(fig)
+    if label_col in points_data.columns:
+        st.subheader("Feature Comparison: Flooded vs Non-Flooded Areas")
+        fig, axes = plt.subplots(4, 3, figsize=(15, 15))
+        features = list(display_names.keys())
+        
+        for i, feature in enumerate(features):
+            if feature in points_data.columns:
+                ax = axes[i//3, i%3]
+                sns.boxplot(x=label_col, y=feature, data=points_data, ax=ax)
+                ax.set_title(display_names[feature])
+                ax.set_xticklabels(['Non-Flooded', 'Flooded'])
+        
+        plt.tight_layout()
+        st.pyplot(fig)
+    else:
+        st.warning("Cannot show feature distributions without label column")
     
     # Correlation analysis
     st.subheader("Feature Correlation Matrix")
-    corr = points_data.drop(columns=['label']).corr()
+    corr = points_data.drop(columns=[label_col] if label_col in points_data.columns else []).corr()
     fig, ax = plt.subplots(figsize=(12, 10))
     sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
                 annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
@@ -483,13 +524,14 @@ with tab1:
 with tab2:
     st.markdown('<div class="subheader">Model Comparison: Point-based vs Raster-based Approaches</div>', unsafe_allow_html=True)
     
-    if st.session_state['points_data'] is not None:
+    if st.session_state['points_data'] is not None and st.session_state['label_column'] in st.session_state['points_data'].columns:
         points_data = st.session_state['points_data']
+        label_col = st.session_state['label_column']
         
         # Prepare data for modeling
         features = ['DEM', 'Slope', 'TWI', 'DTRiver', 'DTDrainage', 'AP', 'FP']
         X = points_data[features]
-        y = points_data['label']
+        y = points_data[label_col]
         
         if not st.session_state['models_trained']:
             with st.spinner("Training models. This may take a few minutes..."):
@@ -498,107 +540,110 @@ with tab2:
                 st.session_state['models_trained'] = True
                 st.success("Models trained successfully!")
         
-        model_results = st.session_state['model_results']
-        
-        col1, col2 = st.columns([1, 1])
-        
-        with col1:
-            st.markdown("""
-            <div class="model-card">
-                <h3>Point-based Models</h3>
-                <p>Traditional ML models using feature vectors:</p>
-                
-                <div class="feature-grid">
-                    <div class="feature-card">
-                        <h4>Random Forest</h4>
-                        <p>Accuracy: {:.2f}</p>
+        if st.session_state['model_results'] is not None:
+            model_results = st.session_state['model_results']
+            
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                st.markdown("""
+                <div class="model-card">
+                    <h3>Point-based Models</h3>
+                    <p>Traditional ML models using feature vectors:</p>
+                    
+                    <div class="feature-grid">
+                        <div class="feature-card">
+                            <h4>Random Forest</h4>
+                            <p>Accuracy: {:.2f}</p>
+                        </div>
+                        <div class="feature-card">
+                            <h4>SVM</h4>
+                            <p>Accuracy: {:.2f}</p>
+                        </div>
+                        <div class="feature-card">
+                            <h4>ANN</h4>
+                            <p>Accuracy: {:.2f}</p>
+                        </div>
                     </div>
-                    <div class="feature-card">
-                        <h4>SVM</h4>
-                        <p>Accuracy: {:.2f}</p>
-                    </div>
-                    <div class="feature-card">
-                        <h4>ANN</h4>
-                        <p>Accuracy: {:.2f}</p>
-                    </div>
+                    
+                    <p><b>Strengths</b>:</p>
+                    <ul>
+                        <li>Efficient for tabular data</li>
+                        <li>Interpretable feature importance</li>
+                        <li>Faster training</li>
+                    </ul>
                 </div>
-                
-                <p><b>Strengths</b>:</p>
-                <ul>
-                    <li>Efficient for tabular data</li>
-                    <li>Interpretable feature importance</li>
-                    <li>Faster training</li>
-                </ul>
-            </div>
-            """.format(
-                model_results['Random Forest']['accuracy'],
-                model_results['Support Vector Machine']['accuracy'],
-                model_results['Artificial Neural Network']['accuracy']
-            ), unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown("""
-            <div class="model-card">
-                <h3>Raster-based Model</h3>
-                <p>Convolutional Neural Network (CNN) using spatial data:</p>
-                
-                <div style="text-align: center; margin: 15px 0;">
-                    <img src="https://miro.medium.com/v2/resize:fit:1400/1*8q0ZJ2xJ9ZJ9ZJ9ZJ9ZJ9Q.png" 
-                         width="100%" style="border-radius: 8px;">
-                    <p style="font-size: 0.8em; color: #666;">CNN architecture for spatial flood prediction</p>
+                """.format(
+                    model_results['Random Forest']['accuracy'],
+                    model_results['Support Vector Machine']['accuracy'],
+                    model_results['Artificial Neural Network']['accuracy']
+                ), unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown("""
+                <div class="model-card">
+                    <h3>Raster-based Model</h3>
+                    <p>Convolutional Neural Network (CNN) using spatial data:</p>
+                    
+                    <div style="text-align: center; margin: 15px 0;">
+                        <img src="https://miro.medium.com/v2/resize:fit:1400/1*8q0ZJ2xJ9ZJ9ZJ9ZJ9ZJ9Q.png" 
+                             width="100%" style="border-radius: 8px;">
+                        <p style="font-size: 0.8em; color: #666;">CNN architecture for spatial flood prediction</p>
+                    </div>
+                    
+                    <p><b>Accuracy</b>: {:.2f}</p>
+                    
+                    <p><b>Strengths</b>:</p>
+                    <ul>
+                        <li>Captures spatial patterns</li>
+                        <li>Handles neighborhood relationships</li>
+                    </ul>
                 </div>
-                
-                <p><b>Accuracy</b>: {:.2f}</p>
-                
-                <p><b>Strengths</b>:</p>
-                <ul>
-                    <li>Captures spatial patterns</li>
-                    <li>Handles neighborhood relationships</li>
-                </ul>
+                """.format(model_results['Convolutional Neural Network']['accuracy']), unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div class="info-box">
+                <h3>Research Hypothesis</h3>
+                <p>The Convolutional Neural Network (CNN) model will outperform traditional machine learning models 
+                (RF, SVM, ANN) for urban pluvial flood susceptibility mapping due to its ability to capture spatial 
+                patterns and neighborhood relationships in raster data.</p>
             </div>
-            """.format(model_results['Convolutional Neural Network']['accuracy']), unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="info-box">
-            <h3>Research Hypothesis</h3>
-            <p>The Convolutional Neural Network (CNN) model will outperform traditional machine learning models 
-            (RF, SVM, ANN) for urban pluvial flood susceptibility mapping due to its ability to capture spatial 
-            patterns and neighborhood relationships in raster data.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Feature importance
-        st.subheader("Feature Importance (Random Forest)")
-        rf_model = model_results['Random Forest']['model']
-        
-        # Get feature importances
-        importances = rf_model.feature_importances_
-        feature_importance = pd.DataFrame({
-            'Feature': features,
-            'Importance': importances
-        }).sort_values('Importance', ascending=False)
-        
-        fig = px.bar(feature_importance, x='Importance', y='Feature', orientation='h',
-                     title='Feature Importance for Random Forest Model',
-                     color='Importance', color_continuous_scale='Blues')
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # SHAP explanation
-        st.subheader("Model Explanation (SHAP Values)")
-        with st.spinner("Generating SHAP explanations..."):
-            try:
-                # Sample data for faster computation
-                X_sample = X.sample(min(100, len(X)), random_state=42)
-                explainer = shap.TreeExplainer(rf_model)
-                shap_values = explainer.shap_values(X_sample)
-                
-                fig, ax = plt.subplots()
-                shap.summary_plot(shap_values, X_sample, plot_type="bar", show=False)
-                st.pyplot(fig)
-            except Exception as e:
-                st.warning(f"SHAP explanation failed: {str(e)}")
+            """, unsafe_allow_html=True)
+            
+            # Feature importance
+            st.subheader("Feature Importance (Random Forest)")
+            rf_model = model_results['Random Forest']['model']
+            
+            # Get feature importances
+            importances = rf_model.feature_importances_
+            feature_importance = pd.DataFrame({
+                'Feature': features,
+                'Importance': importances
+            }).sort_values('Importance', ascending=False)
+            
+            fig = px.bar(feature_importance, x='Importance', y='Feature', orientation='h',
+                         title='Feature Importance for Random Forest Model',
+                         color='Importance', color_continuous_scale='Blues')
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # SHAP explanation
+            st.subheader("Model Explanation (SHAP Values)")
+            with st.spinner("Generating SHAP explanations..."):
+                try:
+                    # Sample data for faster computation
+                    X_sample = X.sample(min(100, len(X)), random_state=42)
+                    explainer = shap.TreeExplainer(rf_model)
+                    shap_values = explainer.shap_values(X_sample)
+                    
+                    fig, ax = plt.subplots()
+                    shap.summary_plot(shap_values, X_sample, plot_type="bar", show=False)
+                    st.pyplot(fig)
+                except Exception as e:
+                    st.warning(f"SHAP explanation failed: {str(e)}")
+        else:
+            st.warning("Model results not available. Please train models first.")
     else:
-        st.warning("Please process data in the 'Data & Features' tab first")
+        st.warning("Please process data with a valid label column in the 'Data & Features' tab first")
 
 # CNN Architecture Tab
 with tab3:
@@ -694,9 +739,33 @@ with tab3:
             st.markdown("""
             <div class="model-card">
                 <h4>Model Summary</h4>
-                <pre>{}</pre>
+                <pre>Model: "sequential"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ conv2d (Conv2D)             (None, 30, 30, 32)        320       
+                                                                 
+ max_pooling2d (MaxPooling2D  (None, 15, 15, 32)       0         
+ )                                                               
+                                                                 
+ conv2d_1 (Conv2D)           (None, 13, 13, 64)        18496     
+                                                                 
+ max_pooling2d_1 (MaxPooling  (None, 6, 6, 64)         0         
+ 2D)                                                             
+                                                                 
+ flatten (Flatten)           (None, 2304)              0         
+                                                                 
+ dense (Dense)               (None, 128)               295040    
+                                                                 
+ dense_1 (Dense)             (None, 1)                 129       
+                                                                 
+=================================================================
+Total params: 313,985
+Trainable params: 313,985
+Non-trainable params: 0
+_________________________________________________________________</pre>
             </div>
-            """.format(cnn_model.summary()), unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
 # Performance Results Tab
 with tab4:
@@ -793,6 +862,7 @@ with tab5:
     if st.session_state['points_data'] is not None and st.session_state['model_results'] is not None:
         points_data = st.session_state['points_data']
         model_results = st.session_state['model_results']
+        label_col = st.session_state['label_column']
         
         # Check if we have geometry data
         if isinstance(points_data, gpd.GeoDataFrame) and 'geometry' in points_data.columns:
@@ -868,12 +938,15 @@ with tab5:
             
             with col2:
                 st.markdown("### Risk Level by Location Type")
-                fig = px.histogram(gdf, x='risk_level', color='label',
-                                   barmode='group',
-                                   color_discrete_sequence=['#1f77b4', '#ff7f0e'],
-                                   labels={'risk_level': 'Risk Level', 'count': 'Number of Locations'},
-                                   category_orders={"risk_level": ['Very Low', 'Low', 'Moderate', 'High', 'Very High']})
-                st.plotly_chart(fig, use_container_width=True)
+                if label_col in gdf.columns:
+                    fig = px.histogram(gdf, x='risk_level', color=label_col,
+                                       barmode='group',
+                                       color_discrete_sequence=['#1f77b4', '#ff7f0e'],
+                                       labels={'risk_level': 'Risk Level', 'count': 'Number of Locations'},
+                                       category_orders={"risk_level": ['Very Low', 'Low', 'Moderate', 'High', 'Very High']})
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning(f"Cannot show by location type - label column '{label_col}' not found")
             
             # Download results
             st.subheader("Download Results")
