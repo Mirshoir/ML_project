@@ -13,7 +13,6 @@ from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_m
 import geopandas as gpd
 import contextily as ctx
 import shap
-import time
 from datetime import datetime
 
 # Configure page
@@ -385,7 +384,7 @@ with tab3:
     </div>
     """, unsafe_allow_html=True)
 
-# Model Interpretation Tab (updated with SHAP)
+# Model Interpretation Tab (fixed SHAP waterfall plot)
 with tab4:
     st.markdown('<div class="subheader">Model Interpretation with SHAP</div>', unsafe_allow_html=True)
     
@@ -403,14 +402,15 @@ with tab4:
     # Compute SHAP values
     explainer = shap.TreeExplainer(model_shap)
     sample_idx = np.random.choice(X_test.index, 100, replace=False)
-    shap_values = explainer(X_test.loc[sample_idx])
+    X_sample = X_test.loc[sample_idx]
+    shap_values = explainer.shap_values(X_sample)
     
     col1, col2 = st.columns([1, 1])
     
     with col1:
         st.subheader("Global Feature Importance")
         fig, ax = plt.subplots(figsize=(10, 6))
-        shap.summary_plot(shap_values.values, X_test.loc[sample_idx], plot_type="bar", show=False)
+        shap.summary_plot(shap_values[1], X_sample, plot_type="bar", show=False)
         plt.title("SHAP Feature Importance")
         st.pyplot(fig)
         
@@ -428,7 +428,7 @@ with tab4:
     with col2:
         st.subheader("Feature Impact Direction")
         fig, ax = plt.subplots(figsize=(10, 6))
-        shap.summary_plot(shap_values.values, X_test.loc[sample_idx], show=False)
+        shap.summary_plot(shap_values[1], X_sample, show=False)
         plt.title("SHAP Value Impact")
         st.pyplot(fig)
         
@@ -451,7 +451,7 @@ with tab4:
     
     with col1:
         st.markdown(f"**Location Characteristics**")
-        sample_data = X_test.loc[sample_idx].iloc[sample_id]
+        sample_data = X_sample.iloc[sample_id]
         st.write(sample_data)
         
         prediction = model_shap.predict_proba([sample_data])[0][1]
@@ -471,7 +471,15 @@ with tab4:
     with col2:
         st.markdown("**SHAP Waterfall Plot**")
         fig, ax = plt.subplots(figsize=(10, 6))
-        shap.plots.waterfall(shap_values[sample_id], max_display=8, show=False)
+        
+        # Fixed SHAP waterfall plot
+        shap.plots._waterfall.waterfall_legacy(
+            explainer.expected_value[1],
+            shap_values[1][sample_id],
+            feature_names=X_sample.columns,
+            max_display=8,
+            show=False
+        )
         plt.title(f"Local Explanation for Location {sample_id}")
         plt.tight_layout()
         st.pyplot(fig)
@@ -489,8 +497,8 @@ with tab5:
     np.random.seed(42)
     n_locations = 50
     locations = pd.DataFrame({
-        'lat': np.random.uniform(37.7, 37.82, n_locations),
-        'lon': np.random.uniform(-122.5, -122.37, n_locations),
+        'lat': np.random.uniform(52.4, 52.6, n_locations),  # Berlin coordinates
+        'lon': np.random.uniform(13.2, 13.6, n_locations),
         'alert_level': np.random.choice([1, 2, 3, 4], n_locations, p=[0.5, 0.3, 0.15, 0.05]),
         'name': [f"Location {i+1}" for i in range(n_locations)]
     })
@@ -540,9 +548,10 @@ with tab5:
         color_continuous_scale=px.colors.diverging.RdYlBu_r,
         range_color=(1, 4),
         size_max=15,
-        zoom=11,
+        zoom=10,
         hover_name="name",
-        hover_data={"alert_level": True, "lat": False, "lon": False}
+        hover_data={"alert_level": True, "lat": False, "lon": False},
+        center={"lat": 52.52, "lon": 13.40}  # Berlin center
     )
     
     fig.update_layout(
