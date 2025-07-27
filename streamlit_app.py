@@ -343,6 +343,11 @@ with tab4:
     # Extract SHAP values for the positive class (flood probability)
     shap_values_positive = shap_values[:, :, 1]
     
+    # Get feature indices
+    feature_names = X_test.columns.tolist()
+    imperviousness_idx = feature_names.index("imperviousness")
+    elevation_idx = feature_names.index("elevation")
+    
     col1, col2 = st.columns([1, 1])
     
     with col1:
@@ -367,10 +372,10 @@ with tab4:
         st.markdown("**Feature Dependence**")
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        # Fixed: Use positive class values and color by elevation feature
+        # Fixed: Use integer indices instead of string names
         shap.plots.scatter(
-            shap_values_positive[:, "imperviousness"], 
-            color=shap_values_positive.data[:, "elevation"],
+            shap_values_positive[:, imperviousness_idx], 
+            color=shap_values_positive.data[:, elevation_idx],
             show=False
         )
         plt.xlabel("Imperviousness (%)")
