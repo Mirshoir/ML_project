@@ -20,6 +20,7 @@ import tempfile
 import os
 import warnings
 from shapely.geometry import Point
+from shapely import wkt
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -462,9 +463,14 @@ with tab1:
     points_data = st.session_state['points_data']
     label_col = st.session_state['label_column']
     
+    # Create display version with geometry converted to WKT
+    display_data = points_data.copy()
+    if 'geometry' in display_data.columns:
+        display_data['geometry'] = display_data['geometry'].apply(lambda geom: wkt.dumps(geom))
+    
     # Display data
     st.subheader("Processed Data Preview")
-    st.dataframe(points_data.head())
+    st.dataframe(display_data.head())
     
     # Check if label column exists in the DataFrame
     if label_col in points_data.columns:
@@ -547,6 +553,13 @@ with tab2:
         
         # Prepare data for modeling
         model_features = st.session_state['model_features']
+        
+        # Check if all features are present
+        missing_features = [feat for feat in model_features if feat not in points_data.columns]
+        if missing_features:
+            st.error(f"Missing required features: {', '.join(missing_features)}")
+            st.stop()
+        
         X = points_data[model_features]
         y = points_data[label_col]
         
@@ -888,6 +901,20 @@ with tab5:
             model_options = list(model_results.keys())
             selected_model = st.selectbox("Select Model for Prediction", model_options, index=0)
             
+            # Check if all required features are present
+            missing_features = [feat for feat in model_features if feat not in points_data.columns]
+            if missing_features:
+                st.warning(f"Missing features: {', '.join(missing_features)}. Using fallback values.")
+                for feat in missing_features:
+                    if feat == 'FP':  # Handle FP specifically
+                        # Create a reasonable proxy for FP
+                        if 'AP' in points_data.columns:
+                            points_data['FP'] = points_data['AP'] / points_data['AP'].max() * 10
+                        else:
+                            points_data['FP'] = np.random.uniform(0, 10, len(points_data))
+                    else:
+                        points_data[feat] = np.random.random(len(points_data))
+            
             # Use the same features that were used during training
             X = points_data[model_features]
             
@@ -897,7 +924,7 @@ with tab5:
             else:
                 # For CNN, use simulated probabilities
                 # Ensure we have all required features
-                required_features = ['DEM', 'Slope', 'TWI', 'DTDrainage', 'AP']
+                required_features = ['DEM', 'Slope', 'TWI', 'DTDrainage', 'AP', 'FP']
                 for feat in required_features:
                     if feat not in points_data.columns:
                         # If feature is missing, generate random values for demonstration
@@ -908,7 +935,8 @@ with tab5:
                     0.2 * (1 / points_data['Slope'].clip(0.1, 10)) +
                     0.15 * points_data['TWI'] / 12 +
                     0.1 * (1 / points_data['DTDrainage'].clip(1, 300)) +
-                    0.25 * points_data['AP'] / 100
+                    0.15 * points_data['AP'] / 100 +
+                    0.1 * points_data['FP'] / 10
                 )
                 points_data['flood_prob'] = np.clip(points_data['flood_prob'], 0, 1)
             
@@ -974,10 +1002,18 @@ with tab5:
             
             # Download results
             st.subheader("Download Results")
+            
+            # Create download version with geometry as WKT
+            download_gdf = gdf.copy()
+            download_gdf['geometry'] = download_gdf['geometry'].apply(lambda geom: wkt.dumps(geom))
+            
             if st.button("Export Susceptibility Map Data"):
                 # Include all features in the download
                 download_features = model_features + ['geometry', 'flood_prob', 'risk_level']
-                csv = gdf[download_features].to_csv(index=False)
+                if label_col in download_gdf.columns:
+                    download_features.append(label_col)
+                
+                csv = download_gdf[download_features].to_csv(index=False)
                 st.download_button(
                     label="Download CSV",
                     data=csv,
