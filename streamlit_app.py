@@ -158,6 +158,8 @@ if 'label_column' not in st.session_state:
     st.session_state['label_column'] = 'label'
 if 'raster_files' not in st.session_state:
     st.session_state['raster_files'] = {}
+if 'model_features' not in st.session_state:
+    st.session_state['model_features'] = ['DEM', 'Slope', 'TWI', 'DTRiver', 'DTDrainage', 'AP', 'FP']
 
 # Data Processing Functions
 def extract_raster_values(shapefile, raster_files, label_col):
@@ -507,7 +509,7 @@ with tab1:
     else:
         st.warning("Cannot show feature distributions without label column")
     
-    # Correlation analysis - FIXED SECTION
+    # Correlation analysis
     st.subheader("Feature Correlation Matrix")
     
     # Get numeric columns only
@@ -544,8 +546,8 @@ with tab2:
         label_col = st.session_state['label_column']
         
         # Prepare data for modeling
-        features = ['DEM', 'Slope', 'TWI', 'DTRiver', 'DTDrainage', 'AP', 'FP']
-        X = points_data[features]
+        model_features = st.session_state['model_features']
+        X = points_data[model_features]
         y = points_data[label_col]
         
         if not st.session_state['models_trained']:
@@ -632,7 +634,7 @@ with tab2:
             # Get feature importances
             importances = rf_model.feature_importances_
             feature_importance = pd.DataFrame({
-                'Feature': features,
+                'Feature': model_features,
                 'Importance': importances
             }).sort_values('Importance', ascending=False)
             
@@ -878,6 +880,7 @@ with tab5:
         points_data = st.session_state['points_data']
         model_results = st.session_state['model_results']
         label_col = st.session_state['label_column']
+        model_features = st.session_state['model_features']
         
         # Check if we have geometry data
         if isinstance(points_data, gpd.GeoDataFrame) and 'geometry' in points_data.columns:
@@ -885,15 +888,21 @@ with tab5:
             model_options = list(model_results.keys())
             selected_model = st.selectbox("Select Model for Prediction", model_options, index=0)
             
-            # Create a simple flood probability model for demonstration
-            features = ['DEM', 'Slope', 'TWI', 'DTRiver', 'DTDrainage', 'AP']
-            X = points_data[features]
+            # Use the same features that were used during training
+            X = points_data[model_features]
             
             if "Convolutional" not in selected_model:
                 model = model_results[selected_model]['model']
                 points_data['flood_prob'] = model.predict_proba(X)[:, 1]
             else:
                 # For CNN, use simulated probabilities
+                # Ensure we have all required features
+                required_features = ['DEM', 'Slope', 'TWI', 'DTDrainage', 'AP']
+                for feat in required_features:
+                    if feat not in points_data.columns:
+                        # If feature is missing, generate random values for demonstration
+                        points_data[feat] = np.random.random(len(points_data))
+                
                 points_data['flood_prob'] = (
                     0.3 * (100 - points_data['DEM']) / 100 +
                     0.2 * (1 / points_data['Slope'].clip(0.1, 10)) +
@@ -919,7 +928,7 @@ with tab5:
                 range_color=[0, 1],
                 size_max=15,
                 zoom=10,
-                hover_data=features,
+                hover_data=model_features,
                 title=f"{selected_model} Flood Susceptibility"
             )
             
@@ -966,7 +975,9 @@ with tab5:
             # Download results
             st.subheader("Download Results")
             if st.button("Export Susceptibility Map Data"):
-                csv = gdf[['geometry', 'flood_prob', 'risk_level'] + features].to_csv(index=False)
+                # Include all features in the download
+                download_features = model_features + ['geometry', 'flood_prob', 'risk_level']
+                csv = gdf[download_features].to_csv(index=False)
                 st.download_button(
                     label="Download CSV",
                     data=csv,
