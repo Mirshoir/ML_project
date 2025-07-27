@@ -12,15 +12,10 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix
 import shap
 import geopandas as gpd
-import contextily as ctx
-from datetime import datetime
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
 import rasterio
 from rasterio.plot import show
-from PIL import Image
-import io
-import zipfile
 import tempfile
 import os
 import warnings
@@ -161,9 +156,10 @@ if 'cnn_model' not in st.session_state:
     st.session_state['cnn_model'] = None
 if 'label_column' not in st.session_state:
     st.session_state['label_column'] = 'label'
+if 'raster_files' not in st.session_state:
+    st.session_state['raster_files'] = {}
 
 # Data Processing Functions
-@st.cache_data
 def extract_raster_values(shapefile, raster_files, label_col):
     """Extract raster values at point locations"""
     try:
@@ -383,6 +379,7 @@ with tab1:
                     
                     if points_data is not None and not points_data.empty:
                         st.session_state['points_data'] = points_data
+                        st.session_state['raster_files'] = raster_files
                         st.success("Geospatial data processed successfully!")
                         st.session_state['models_trained'] = False
                         
@@ -510,15 +507,33 @@ with tab1:
     else:
         st.warning("Cannot show feature distributions without label column")
     
-    # Correlation analysis
+    # Correlation analysis - FIXED SECTION
     st.subheader("Feature Correlation Matrix")
-    corr = points_data.drop(columns=[label_col] if label_col in points_data.columns else []).corr()
-    fig, ax = plt.subplots(figsize=(12, 10))
-    sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
-                annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
-    plt.xticks(rotation=45, ha='right')
-    plt.yticks(rotation=0)
-    st.pyplot(fig)
+    
+    # Get numeric columns only
+    numeric_cols = points_data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    # Remove label column if present
+    if label_col in numeric_cols:
+        numeric_cols.remove(label_col)
+    
+    # Only proceed if we have numeric columns
+    if numeric_cols and len(numeric_cols) > 1:
+        # Create a numeric-only dataframe
+        numeric_data = points_data[numeric_cols]
+        
+        # Calculate correlation matrix
+        corr = numeric_data.corr()
+        
+        # Plot the heatmap
+        fig, ax = plt.subplots(figsize=(12, 10))
+        sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
+                    annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
+        st.pyplot(fig)
+    else:
+        st.warning("Not enough numeric columns available for correlation analysis")
 
 # Model Comparison Tab
 with tab2:
