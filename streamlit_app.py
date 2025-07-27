@@ -132,6 +132,12 @@ st.markdown("""
         margin: 20px 0;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
+    .data-stats {
+        background-color: #e8f5e9;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -166,11 +172,11 @@ if 'model_results' not in st.session_state:
 if 'cnn_model' not in st.session_state:
     st.session_state['cnn_model'] = None
 if 'label_column' not in st.session_state:
-    st.session_state['label_column'] = 'label'
+    st.session_state['label_column'] = 'Label'
 if 'raster_files' not in st.session_state:
     st.session_state['raster_files'] = {}
 if 'model_features' not in st.session_state:
-    st.session_state['model_features'] = ['DEM', 'Slope', 'TWI', 'DTRiver', 'DTDrainage', 'AP', 'FP']
+    st.session_state['model_features'] = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM', 'DTDrainage', 'DTRiver']
 
 # Data Processing Functions
 def extract_raster_values(shapefile, raster_files, label_col):
@@ -184,9 +190,8 @@ def extract_raster_values(shapefile, raster_files, label_col):
             st.error(f"Label column '{label_col}' not found in shapefile!")
             return None
         
-        # Initialize columns
-        raster_names = ['DEM', 'Slope', 'Aspect', 'Curvature', 'TWI', 
-                       'DTDrainage', 'DTRoad', 'DTRiver', 'CN', 'AP', 'FP']
+        # Initialize columns based on new feature names
+        raster_names = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM', 'DTDrainage', 'DTRiver']
         
         for name in raster_names:
             points[name] = 0.0
@@ -240,12 +245,17 @@ def handle_uploaded_files(uploaded_shp, uploaded_rasters):
     return shp_path, raster_files
 
 def train_models(X, y):
-    """Train and evaluate machine learning models"""
+    """Train and evaluate machine learning models with 60-20-20 split"""
     results = {}
     
-    # Split data
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.3, random_state=42
+    # Split data: 60% train, 20% validation, 20% test
+    # First split: 80% (train+val) and 20% test
+    X_train_val, X_test, y_train_val, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+    # Split train_val into train (75% of 80% = 60%) and val (25% of 80% = 20%)
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_train_val, y_train_val, test_size=0.25, random_state=42
     )
     
     # Initialize models
@@ -266,7 +276,8 @@ def train_models(X, y):
             "f1": f1_score(y_test, y_pred),
             "roc_auc": roc_auc_score(y_test, y_proba),
             "confusion_matrix": confusion_matrix(y_test, y_pred),
-            "model": model
+            "model": model,
+            "feature_importances": model.feature_importances_ if hasattr(model, 'feature_importances_') else None
         }
     
     # Simulate CNN results with lower accuracy for small dataset
@@ -275,7 +286,15 @@ def train_models(X, y):
         "f1": 0.80,
         "roc_auc": 0.85,
         "confusion_matrix": np.array([[270, 30], [40, 260]]),
-        "model": None
+        "model": None,
+        "feature_importances": None
+    }
+    
+    # Store split data in results for visualization
+    results["data_splits"] = {
+        "X_train": X_train, "y_train": y_train,
+        "X_val": X_val, "y_val": y_val,
+        "X_test": X_test, "y_test": y_test
     }
     
     return results
@@ -325,8 +344,7 @@ with tab1:
         - Raster files for predictive features:
             - DEM.tif, Slope.tif, Aspect.tif, Curvature.tif, TWI.tif
             - DTDrainage.tif, DTRoad.tif, DTRiver.tif, CN.tif
-            - AP.tif (Max daily precipitation)
-            - FP.tif (Frequency of extreme precipitation)
+            - FreqRainfall.tif (Frequency of extreme precipitation)
         """)
         
         st.markdown("""
@@ -430,18 +448,17 @@ with tab1:
         flood_geometry = [Point(lon, lat) for lon, lat in zip(flood_lons, flood_lats)]
         
         flood_data = {
-            'DEM': np.random.normal(30, 10, data_size),
+            'DTRoad': np.random.exponential(50, data_size),
+            'Freq Rainfall': np.random.uniform(0, 10, data_size),
             'Slope': np.random.gamma(1.5, 2, data_size),
             'TWI': np.random.uniform(4, 12, data_size),
             'Aspect': np.random.uniform(0, 360, data_size),
-            'Curvature': np.random.normal(0, 1, data_size),
             'CN': np.random.uniform(40, 100, data_size),
-            'DTRiver': np.random.exponential(100, data_size),
-            'DTRoad': np.random.exponential(50, data_size),
+            'Curve': np.random.normal(0, 1, data_size),
+            'DEM': np.random.normal(30, 10, data_size),
             'DTDrainage': np.random.exponential(150, data_size),
-            'AP': np.random.gamma(2, 10, data_size),
-            'FP': np.random.uniform(0, 10, data_size),
-            'label': 1  # Flooded locations
+            'DTRiver': np.random.exponential(100, data_size),
+            'Label': 1  # Flooded locations
         }
         flood_gdf = gpd.GeoDataFrame(flood_data, geometry=flood_geometry, crs="EPSG:4326")
         
@@ -451,27 +468,38 @@ with tab1:
         non_flood_geometry = [Point(lon, lat) for lon, lat in zip(non_flood_lons, non_flood_lats)]
         
         non_flood_data = {
-            'DEM': np.random.normal(50, 15, data_size),
+            'DTRoad': np.random.exponential(100, data_size),
+            'Freq Rainfall': np.random.uniform(0, 5, data_size),
             'Slope': np.random.gamma(3, 1, data_size),
             'TWI': np.random.uniform(2, 8, data_size),
             'Aspect': np.random.uniform(0, 360, data_size),
-            'Curvature': np.random.normal(0, 0.5, data_size),
             'CN': np.random.uniform(30, 70, data_size),
-            'DTRiver': np.random.exponential(200, data_size),
-            'DTRoad': np.random.exponential(100, data_size),
+            'Curve': np.random.normal(0, 0.5, data_size),
+            'DEM': np.random.normal(50, 15, data_size),
             'DTDrainage': np.random.exponential(300, data_size),
-            'AP': np.random.gamma(1, 5, data_size),
-            'FP': np.random.uniform(0, 5, data_size),
-            'label': 0  # Non-flooded locations
+            'DTRiver': np.random.exponential(200, data_size),
+            'Label': 0  # Non-flooded locations
         }
         non_flood_gdf = gpd.GeoDataFrame(non_flood_data, geometry=non_flood_geometry, crs="EPSG:4326")
         
         points_data = gpd.GeoDataFrame(pd.concat([flood_gdf, non_flood_gdf], ignore_index=True), crs="EPSG:4326")
         st.session_state['points_data'] = points_data
-        st.session_state['label_column'] = 'label'
+        st.session_state['label_column'] = 'Label'
     
     points_data = st.session_state['points_data']
     label_col = st.session_state['label_column']
+    
+    # Check for null values
+    st.subheader("Data Quality Check")
+    null_counts = points_data.isnull().sum()
+    if null_counts.sum() > 0:
+        st.warning(f"Found {null_counts.sum()} missing values in the dataset")
+        st.dataframe(null_counts[null_counts > 0].rename("Null Count"))
+        points_data = points_data.dropna()
+        st.session_state['points_data'] = points_data
+        st.success(f"Removed rows with missing values. New dataset size: {len(points_data)}")
+    else:
+        st.success("No missing values found in the dataset")
     
     # Create display version with geometry converted to WKT
     display_data = points_data.copy()
@@ -480,13 +508,26 @@ with tab1:
     
     # Display data
     st.subheader("Processed Data Preview")
-    st.dataframe(display_data.head())
+    st.dataframe(display_data.head().style.format("{:.4f}"))
     
     # Check if label column exists in the DataFrame
     if label_col in points_data.columns:
-        st.markdown(f"**Total locations:** {len(points_data)}")
-        st.markdown(f"**Flooded locations:** {len(points_data[points_data[label_col] == 1])}")
-        st.markdown(f"**Non-flooded locations:** {len(points_data[points_data[label_col] == 0])}")
+        # Class distribution visualization
+        st.subheader("Class Distribution")
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.markdown("### Class Counts")
+            class_counts = points_data[label_col].value_counts()
+            st.dataframe(class_counts.rename("Count"))
+            
+        with col2:
+            fig, ax = plt.subplots(figsize=(8, 4))
+            sns.countplot(x=label_col, data=points_data, ax=ax)
+            ax.set_title("Flooded vs Non-Flooded Locations")
+            ax.set_xticklabels(['Non-Flooded', 'Flooded'])
+            ax.set_ylabel("Count")
+            st.pyplot(fig)
     else:
         st.error(f"Label column '{label_col}' not found in processed data!")
     
@@ -499,13 +540,12 @@ with tab1:
         'Slope': 'Slope',
         'TWI': 'Topographic Wetness Index',
         'Aspect': 'Aspect',
-        'Curvature': 'Curvature',
+        'Curve': 'Curvature',
         'CN': 'Curve Number',
         'DTRiver': 'Distance to River',
         'DTRoad': 'Distance to Road',
         'DTDrainage': 'Distance to Drainage',
-        'AP': 'Max Daily Rainfall',
-        'FP': 'Frequency of Extreme Events'
+        'Freq Rainfall': 'Frequency of Extreme Events'
     }
     
     if label_col in points_data.columns:
@@ -597,6 +637,20 @@ with tab2:
         
         if st.session_state['model_results'] is not None:
             model_results = st.session_state['model_results']
+            
+            # Show data split information
+            st.subheader("Data Split Information")
+            data_splits = model_results["data_splits"]
+            split_info = pd.DataFrame({
+                "Dataset": ["Training", "Validation", "Testing"],
+                "Count": [
+                    len(data_splits["X_train"]),
+                    len(data_splits["X_val"]),
+                    len(data_splits["X_test"])
+                ],
+                "Percentage": ["60%", "20%", "20%"]
+            })
+            st.dataframe(split_info)
             
             col1, col2 = st.columns([1, 1])
             
@@ -741,7 +795,7 @@ with tab3:
         <div class="model-card">
             <h4>Input Layer</h4>
             <ul>
-                <li>11 input bands (one for each feature)</li>
+                <li>10 input bands (one for each feature)</li>
                 <li>32x32 pixel neighborhoods</li>
             </ul>
             
@@ -799,7 +853,7 @@ with tab3:
         <h3>Data Preparation for CNN</h3>
         <p>To train the CNN model, we convert our spatial features into multi-band raster images:</p>
         <ol>
-            <li>Create 11 raster layers (one for each feature)</li>
+            <li>Create 10 raster layers (one for each feature)</li>
             <li>Extract 32x32 pixel neighborhoods around each sample point</li>
             <li>Normalize each band to 0-1 range</li>
             <li>Split into training and testing datasets</li>
@@ -811,7 +865,7 @@ with tab3:
     if st.button("Initialize CNN Model"):
         with st.spinner("Creating CNN architecture..."):
             # Create a simple CNN model
-            cnn_model = create_cnn_model((32, 32, 11))
+            cnn_model = create_cnn_model((32, 32, 10))
             st.session_state['cnn_model'] = cnn_model
             st.success("CNN model initialized successfully!")
             st.markdown("""
@@ -855,13 +909,14 @@ with tab4:
         # Prepare results dataframe
         results_data = []
         for model_name, metrics in model_results.items():
-            results_data.append({
-                "Model": model_name,
-                "Accuracy": metrics['accuracy'],
-                "F1 Score": metrics['f1'],
-                "ROC AUC": metrics['roc_auc'],
-                "Training Time (min)": 5 if "Convolutional" in model_name else np.random.uniform(0.5, 3)
-            })
+            if model_name != "data_splits":  # Skip the data splits entry
+                results_data.append({
+                    "Model": model_name,
+                    "Accuracy": metrics['accuracy'],
+                    "F1 Score": metrics['f1'],
+                    "ROC AUC": metrics['roc_auc'],
+                    "Training Time (min)": 5 if "Convolutional" in model_name else np.random.uniform(0.5, 3)
+                })
         
         results_df = pd.DataFrame(results_data)
         
@@ -903,7 +958,6 @@ with tab4:
                 <li>Random Forest achieved the best accuracy ({:.2f}%) with our small dataset ({} locations)</li>
                 <li>Traditional ML models outperformed CNN in all metrics for this flood mapping scenario</li>
                 <li>ANN showed good accuracy but required more computational resources</li>
-                <li>All models identified rainfall features and TWI as most important predictors</li>
                 <li>Results confirm ML superiority for small flood inventories (<500 locations)</li>
             </ul>
         </div>
@@ -1003,6 +1057,8 @@ with tab5:
         if isinstance(points_data, gpd.GeoDataFrame) and 'geometry' in points_data.columns:
             # Select model
             model_options = list(model_results.keys())
+            # Remove data_splits from model options
+            model_options = [m for m in model_options if m != "data_splits"]
             selected_model = st.selectbox("Select Model for Prediction", model_options, index=0)
             
             # Check if all required features are present
@@ -1010,12 +1066,9 @@ with tab5:
             if missing_features:
                 st.warning(f"Missing features: {', '.join(missing_features)}. Using fallback values.")
                 for feat in missing_features:
-                    if feat == 'FP':  # Handle FP specifically
-                        # Create a reasonable proxy for FP
-                        if 'AP' in points_data.columns:
-                            points_data['FP'] = points_data['AP'] / points_data['AP'].max() * 10
-                        else:
-                            points_data['FP'] = np.random.uniform(0, 10, len(points_data))
+                    if feat == 'Freq Rainfall':  # Handle specifically
+                        # Create a reasonable proxy
+                        points_data['Freq Rainfall'] = np.random.uniform(0, 10, len(points_data))
                     else:
                         points_data[feat] = np.random.random(len(points_data))
             
@@ -1028,7 +1081,7 @@ with tab5:
             else:
                 # For CNN, use simulated probabilities
                 # Ensure we have all required features
-                required_features = ['DEM', 'Slope', 'TWI', 'DTDrainage', 'AP', 'FP']
+                required_features = ['DEM', 'Slope', 'TWI', 'DTDrainage', 'Freq Rainfall']
                 for feat in required_features:
                     if feat not in points_data.columns:
                         # If feature is missing, generate random values for demonstration
@@ -1039,8 +1092,7 @@ with tab5:
                     0.2 * (1 / points_data['Slope'].clip(0.1, 10)) +
                     0.15 * points_data['TWI'] / 12 +
                     0.1 * (1 / points_data['DTDrainage'].clip(1, 300)) +
-                    0.15 * points_data['AP'] / 100 +
-                    0.1 * points_data['FP'] / 10
+                    0.15 * points_data['Freq Rainfall'] / 10
                 )
                 points_data['flood_prob'] = np.clip(points_data['flood_prob'], 0, 1)
             
