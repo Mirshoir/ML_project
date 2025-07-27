@@ -320,7 +320,7 @@ with tab3:
     </div>
     """, unsafe_allow_html=True)
 
-# Model Interpretation Tab (Updated)
+# Model Interpretation Tab (Fixed)
 with tab4:
     st.markdown('<div class="subheader">Interpreting Black-Box Models</div>', unsafe_allow_html=True)
     st.markdown("""
@@ -340,12 +340,15 @@ with tab4:
     explainer = shap.TreeExplainer(model)
     shap_values = explainer(X_test.iloc[:100])
     
+    # Extract SHAP values for the positive class (flood probability)
+    shap_values_positive = shap_values[:, :, 1]
+    
     col1, col2 = st.columns([1, 1])
     
     with col1:
         st.markdown("**Summary Plot**")
         fig, ax = plt.subplots(figsize=(10, 6))
-        shap.summary_plot(shap_values.values, X_test.iloc[:100], plot_type="dot", show=False)
+        shap.summary_plot(shap_values_positive.values, X_test.iloc[:100], plot_type="dot", show=False)
         ax.set_title("Feature Importance & Impact Direction")
         st.pyplot(fig)
         
@@ -363,10 +366,17 @@ with tab4:
     with col2:
         st.markdown("**Feature Dependence**")
         fig, ax = plt.subplots(figsize=(10, 6))
-        shap.plots.scatter(shap_values[:, "imperviousness"], color=shap_values, show=False)
+        
+        # Fixed: Use positive class values and color by elevation feature
+        shap.plots.scatter(
+            shap_values_positive[:, "imperviousness"], 
+            color=shap_values_positive.data[:, "elevation"],
+            show=False
+        )
         plt.xlabel("Imperviousness (%)")
         plt.ylabel("SHAP Value (Impact on Flood Probability)")
         plt.title("How Imperviousness Affects Flood Risk")
+        plt.colorbar(label='Elevation (m)')
         st.pyplot(fig)
         
         st.markdown("""
@@ -418,7 +428,9 @@ with tab4:
     with col2:
         st.markdown("**SHAP Waterfall Plot**")
         fig, ax = plt.subplots(figsize=(10, 6))
-        shap.plots.waterfall(shap_values[sample_idx], max_display=8, show=False)
+        
+        # Fixed: Use positive class values
+        shap.plots.waterfall(shap_values_positive[sample_idx], max_display=8, show=False)
         plt.title(f"Local Explanation for Location {sample_idx}")
         plt.tight_layout()
         st.pyplot(fig)
