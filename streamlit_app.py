@@ -1,5 +1,3 @@
-[file name]: logs-mirshoir-ml_project-master-streamlit_app.py-2025-07-30T12_09_11.544Z.txt
-[file content begin]
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -549,12 +547,7 @@ with tab1:
     
     # Format only numeric columns to 4 decimal places
     if not display_data.empty:
-        # Only format if there are numeric columns
-        if not numeric_cols.empty:
-            styled_data = display_data.head().style.format("{:.4f}", subset=numeric_cols)
-        else:
-            styled_data = display_data.head().style
-            
+        styled_data = display_data.head().style.format("{:.4f}", subset=numeric_cols)
         st.dataframe(styled_data)
     
     # Check if label column exists in the DataFrame
@@ -1256,4 +1249,3 @@ st.markdown("""
 **GitHub Repository:** [Machine Learning for Flood Susceptibility](https://github.com/omarseleem92/Machine_learning_for_flood_susceptibility)  
 **Data Source:** [Berlin Open Data Portal](https://daten.berlin.de/)
 """)
-[file content end]
