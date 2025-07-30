@@ -539,9 +539,16 @@ with tab1:
     if 'geometry' in display_data.columns:
         display_data['geometry'] = display_data['geometry'].apply(lambda geom: wkt.dumps(geom))
     
-    # Display data
+    # Display data - FIX APPLIED HERE
     st.subheader("Processed Data Preview")
-    st.dataframe(display_data.head().style.format("{:.4f}"))
+    
+    # Identify numeric columns for formatting
+    numeric_cols = display_data.select_dtypes(include=[np.number]).columns
+    
+    # Format only numeric columns to 4 decimal places
+    if not display_data.empty:
+        styled_data = display_data.head().style.format("{:.4f}", subset=numeric_cols)
+        st.dataframe(styled_data)
     
     # Check if label column exists in the DataFrame
     if label_col in points_data.columns:
