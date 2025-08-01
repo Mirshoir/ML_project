@@ -21,6 +21,7 @@ import os
 import warnings
 from shapely.geometry import Point
 from shapely import wkt
+import pydeck as pdk
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -82,7 +83,7 @@ st.markdown("""
     .alert-level-3 { background-color: #ff9800; color: white; padding: 5px 10px; border-radius: 4px; }
     .alert-level-4 { background-color: #f44336; color: white; padding: 5px 10px; border-radius: 4px; }
     .map-container {
-        height: 600px;
+        height: 700px;
         margin-bottom: 30px;
         border-radius: 10px;
         overflow: hidden;
@@ -166,6 +167,31 @@ st.markdown("""
         height: 100%;
         background: linear-gradient(90deg, #1e3c72, #2a5298);
         border-radius: 10px;
+    }
+    .legend-container {
+        background-color: white;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        z-index: 1;
+    }
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        margin-right: 8px;
+        border-radius: 3px;
+    }
+    .district-boundary {
+        color: #555;
+        stroke-width: 1;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1107,131 +1133,180 @@ with tab5:
         label_col = st.session_state['label_column']
         model_features = st.session_state['model_features']
         
-        # Check if we have geometry data
-        if isinstance(points_data, gpd.GeoDataFrame) and 'geometry' in points_data.columns:
-            # Select model
-            model_options = list(model_results.keys())
-            # Remove data_splits from model options
-            model_options = [m for m in model_options if m != "data_splits"]
-            selected_model = st.selectbox("Select Model for Prediction", model_options, index=0)
-            
-            # Check if all required features are present
-            missing_features = [feat for feat in model_features if feat not in points_data.columns]
-            if missing_features:
-                st.warning(f"Missing features: {', '.join(missing_features)}. Using fallback values.")
-                for feat in missing_features:
-                    if feat == 'Freq Rainfall':  # Handle specifically
-                        # Create a reasonable proxy
-                        points_data['Freq Rainfall'] = np.random.uniform(0, 10, len(points_data))
-                    else:
-                        points_data[feat] = np.random.random(len(points_data))
-            
-            # Use the same features that were used during training
-            X = points_data[model_features]
-            
-            if "Convolutional" not in selected_model:
-                model = model_results[selected_model]['model']
-                points_data['flood_prob'] = model.predict_proba(X)[:, 1]
-            else:
-                # For CNN, use simulated probabilities
-                # Ensure we have all required features
-                required_features = ['DEM', 'Slope', 'TWI', 'DTDrainage', 'Freq Rainfall']
-                for feat in required_features:
-                    if feat not in points_data.columns:
-                        # If feature is missing, generate random values for demonstration
-                        points_data[feat] = np.random.random(len(points_data))
-                
-                points_data['flood_prob'] = (
-                    0.3 * (100 - points_data['DEM']) / 100 +
-                    0.2 * (1 / points_data['Slope'].clip(0.1, 10)) +
-                    0.15 * points_data['TWI'] / 12 +
-                    0.1 * (1 / points_data['DTDrainage'].clip(1, 300)) +
-                    0.15 * points_data['Freq Rainfall'] / 10
-                )
-                points_data['flood_prob'] = np.clip(points_data['flood_prob'], 0, 1)
-            
-            # Create GeoDataFrame
-            gdf = points_data.copy()
-            
-            # Plot susceptibility map
-            st.subheader("Flood Susceptibility Probability Map")
-            
-            # Create interactive map with Plotly
-            fig = px.scatter_mapbox(
-                gdf, 
-                lat=gdf.geometry.y,
-                lon=gdf.geometry.x,
-                color='flood_prob',
-                color_continuous_scale='RdYlBu_r',
-                range_color=[0, 1],
-                size_max=15,
-                zoom=10,
-                hover_data=model_features,
-                title=f"{selected_model} Flood Susceptibility"
-            )
-            
-            fig.update_layout(
-                mapbox_style="open-street-map",
-                margin={"r":0,"t":30,"l":0,"b":0},
-                height=600
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Risk classification
-            st.subheader("Risk Classification")
-            gdf['risk_level'] = pd.cut(gdf['flood_prob'], 
-                                       bins=[0, 0.2, 0.4, 0.6, 0.8, 1],
-                                       labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
-            
-            # Show risk distribution
-            col1, col2 = st.columns([1, 2])
-            
-            with col1:
-                st.markdown("### Risk Level Distribution")
-                risk_counts = gdf['risk_level'].value_counts().sort_index()
-                fig = px.pie(risk_counts, 
-                             names=risk_counts.index, 
-                             values=risk_counts.values,
-                             hole=0.4,
-                             color=risk_counts.index,
-                             color_discrete_sequence=px.colors.sequential.RdBu_r)
-                st.plotly_chart(fig, use_container_width=True)
-            
-            with col2:
-                st.markdown("### Risk Level by Location Type")
-                if label_col in gdf.columns:
-                    fig = px.histogram(gdf, x='risk_level', color=label_col,
-                                       barmode='group',
-                                       color_discrete_sequence=['#1f77b4', '#ff7f0e'],
-                                       labels={'risk_level': 'Risk Level', 'count': 'Number of Locations'},
-                                       category_orders={"risk_level": ['Very Low', 'Low', 'Moderate', 'High', 'Very High']})
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.warning(f"Cannot show by location type - label column '{label_col}' not found")
-            
-            # Download results
-            st.subheader("Download Results")
-            
-            # Create download version with geometry as WKT
-            download_gdf = gdf.copy()
-            download_gdf['geometry'] = download_gdf['geometry'].apply(lambda geom: wkt.dumps(geom))
-            
-            if st.button("Export Susceptibility Map Data"):
-                # Include all features in the download
-                download_features = model_features + ['geometry', 'flood_prob', 'risk_level']
-                if label_col in download_gdf.columns:
-                    download_features.append(label_col)
-                
-                csv = download_gdf[download_features].to_csv(index=False)
-                st.download_button(
-                    label="Download CSV",
-                    data=csv,
-                    file_name='flood_susceptibility.csv',
-                    mime='text/csv',
-                )
+        # Select model
+        model_options = list(model_results.keys())
+        model_options = [m for m in model_options if m != "data_splits"]
+        selected_model = st.selectbox("Select Model for Prediction", model_options, index=0)
+        
+        # Prepare data
+        X = points_data[model_features]
+        
+        if "Convolutional" not in selected_model:
+            model = model_results[selected_model]['model']
+            points_data['flood_prob'] = model.predict_proba(X)[:, 1]
         else:
-            st.warning("Geospatial data not available. Please upload shapefile with geometry data.")
+            # Simulated probabilities for CNN
+            required_features = ['DEM', 'Slope', 'TWI', 'DTDrainage', 'Freq Rainfall']
+            for feat in required_features:
+                if feat not in points_data.columns:
+                    points_data[feat] = np.random.random(len(points_data))
+            
+            points_data['flood_prob'] = (
+                0.3 * (100 - points_data['DEM']) / 100 +
+                0.2 * (1 / points_data['Slope'].clip(0.1, 10)) +
+                0.15 * points_data['TWI'] / 12 +
+                0.1 * (1 / points_data['DTDrainage'].clip(1, 300)) +
+                0.15 * points_data['Freq Rainfall'] / 10
+            )
+            points_data['flood_prob'] = np.clip(points_data['flood_prob'], 0, 1)
+        
+        # Create GeoDataFrame
+        gdf = points_data.copy()
+        
+        # Risk classification
+        gdf['risk_level'] = pd.cut(gdf['flood_prob'], 
+                                   bins=[0, 0.2, 0.4, 0.6, 0.8, 1],
+                                   labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
+        
+        # Create risk color mapping
+        risk_colors = {
+            'Very Low': [34, 139, 34],    # Green
+            'Low': [154, 205, 50],        # Yellow-Green
+            'Moderate': [255, 215, 0],    # Yellow
+            'High': [255, 140, 0],        # Orange
+            'Very High': [220, 20, 60]    # Red
+        }
+        
+        # Add RGB color column
+        gdf['color'] = gdf['risk_level'].map({
+            'Very Low': [34, 139, 34, 180],
+            'Low': [154, 205, 50, 180],
+            'Moderate': [255, 215, 0, 180],
+            'High': [255, 140, 0, 180],
+            'Very High': [220, 20, 60, 180]
+        })
+        
+        # Create PyDeck map
+        st.subheader("Flood Susceptibility Probability Map")
+        
+        # Calculate center for the map
+        avg_lat = gdf.geometry.y.mean()
+        avg_lon = gdf.geometry.x.mean()
+        
+        # Create point cloud layer
+        point_cloud = pdk.Layer(
+            "PointCloudLayer",
+            data=gdf,
+            get_position=['geometry.x', 'geometry.y'],
+            get_color='color',
+            get_radius=5,
+            pickable=True,
+            radius_min_pixels=2,
+            radius_max_pixels=10
+        )
+        
+        # Create scatterplot layer (alternative)
+        scatter_layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=gdf,
+            get_position=['geometry.x', 'geometry.y'],
+            get_fill_color='color',
+            get_radius=50,
+            pickable=True,
+            opacity=0.8
+        )
+        
+        # Create tooltip
+        tooltip = {
+            "html": "<b>Risk:</b> {risk_level}<br><b>Probability:</b> {flood_prob:.2f}",
+            "style": {
+                "backgroundColor": "steelblue",
+                "color": "white"
+            }
+        }
+        
+        # Create deck
+        deck = pdk.Deck(
+            map_style='mapbox://styles/mapbox/light-v9',
+            initial_view_state=pdk.ViewState(
+                latitude=avg_lat,
+                longitude=avg_lon,
+                zoom=10,
+                pitch=45
+            ),
+            layers=[scatter_layer],
+            tooltip=tooltip
+        )
+        
+        # Display the map
+        st.pydeck_chart(deck)
+        
+        # Add custom legend
+        st.markdown("""
+        <div class="legend-container">
+            <h4>Risk Legend</h4>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgb(34, 139, 34);"></div>
+                <span>Very Low</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgb(154, 205, 50);"></div>
+                <span>Low</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgb(255, 215, 0);"></div>
+                <span>Moderate</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgb(255, 140, 0);"></div>
+                <span>High</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgb(220, 20, 60);"></div>
+                <span>Very High</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Risk distribution
+        st.subheader("Risk Distribution")
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.markdown("### Risk Level Distribution")
+            risk_counts = gdf['risk_level'].value_counts().sort_index()
+            fig = px.pie(risk_counts, 
+                         names=risk_counts.index, 
+                         values=risk_counts.values,
+                         hole=0.4,
+                         color=risk_counts.index,
+                         color_discrete_sequence=['#228B22', '#9ACD32', '#FFD700', '#FF8C00', '#DC143C'])
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            st.markdown("### Risk Level by Location Type")
+            if label_col in gdf.columns:
+                fig = px.histogram(gdf, x='risk_level', color=label_col,
+                                   barmode='group',
+                                   color_discrete_sequence=['#1f77b4', '#ff7f0e'],
+                                   labels={'risk_level': 'Risk Level', 'count': 'Number of Locations'},
+                                   category_orders={"risk_level": ['Very Low', 'Low', 'Moderate', 'High', 'Very High']})
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning(f"Cannot show by location type - label column '{label_col}' not found")
+        
+        # Download results
+        st.subheader("Download Results")
+        if st.button("Export Susceptibility Map Data"):
+            # Create download version without geometry column
+            download_data = gdf.drop(columns=['geometry', 'color']) if 'geometry' in gdf.columns else gdf.copy()
+            csv = download_data.to_csv(index=False)
+            st.download_button(
+                label="Download CSV",
+                data=csv,
+                file_name='flood_susceptibility.csv',
+                mime='text/csv',
+            )
     else:
         st.warning("No data available. Please process data in the first tab and train models.")
 
