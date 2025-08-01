@@ -534,42 +534,38 @@ with tab1:
     else:
         st.success("No missing values found in the dataset")
     
-    # Create display version with geometry converted to WKT
-    display_data = points_data.copy()
-    if 'geometry' in display_data.columns:
-        display_data['geometry'] = display_data['geometry'].apply(lambda geom: wkt.dumps(geom))
-    
     # Display data - FIX APPLIED HERE
     st.subheader("Processed Data Preview")
     
-    # Identify numeric columns for formatting
-    numeric_cols = display_data.select_dtypes(include=[np.number]).columns
-    
-    # Format only numeric columns to 4 decimal places
-    if not display_data.empty:
-        styled_data = display_data.head().style.format("{:.4f}", subset=numeric_cols)
-        st.dataframe(styled_data)
-    
-    # Check if label column exists in the DataFrame
-    if label_col in points_data.columns:
-        # Class distribution visualization
-        st.subheader("Class Distribution")
-        col1, col2 = st.columns([1, 2])
+    # Format numeric columns to 4 decimal places
+    if not points_data.empty:
+        # Create a copy for display
+        display_data = points_data.copy()
         
-        with col1:
-            st.markdown("### Class Counts")
-            class_counts = points_data[label_col].value_counts()
-            st.dataframe(class_counts.rename("Count"))
-            
-        with col2:
-            fig, ax = plt.subplots(figsize=(8, 4))
-            sns.countplot(x=label_col, data=points_data, ax=ax)
-            ax.set_title("Flooded vs Non-Flooded Locations")
-            ax.set_xticklabels(['Non-Flooded', 'Flooded'])
-            ax.set_ylabel("Count")
-            st.pyplot(fig)
-    else:
-        st.error(f"Label column '{label_col}' not found in processed data!")
+        # Format only numeric columns to 4 decimal places
+        numeric_cols = display_data.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            display_data[col] = display_data[col].apply(lambda x: f"{x:.4f}" if isinstance(x, (int, float)) else x)
+        
+        # Display first 5 rows
+        st.dataframe(display_data.head())
+    
+    # Class distribution visualization
+    st.subheader("Class Distribution")
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown("### Class Counts")
+        class_counts = points_data[label_col].value_counts()
+        st.dataframe(class_counts.rename("Count"))
+        
+    with col2:
+        fig, ax = plt.subplots(figsize=(8, 4))
+        sns.countplot(x=label_col, data=points_data, ax=ax)
+        ax.set_title("Flooded vs Non-Flooded Locations")
+        ax.set_xticklabels(['Non-Flooded', 'Flooded'])
+        ax.set_ylabel("Count")
+        st.pyplot(fig)
     
     # Feature distributions
     st.markdown('<div class="subheader">Feature Distributions</div>', unsafe_allow_html=True)
@@ -588,22 +584,19 @@ with tab1:
         'Freq Rainfall': 'Frequency of Extreme Events'
     }
     
-    if label_col in points_data.columns:
-        st.subheader("Feature Comparison: Flooded vs Non-Flooded Areas")
-        fig, axes = plt.subplots(4, 3, figsize=(15, 15))
-        features = list(display_names.keys())
-        
-        for i, feature in enumerate(features):
-            if feature in points_data.columns:
-                ax = axes[i//3, i%3]
-                sns.boxplot(x=label_col, y=feature, data=points_data, ax=ax)
-                ax.set_title(display_names[feature])
-                ax.set_xticklabels(['Non-Flooded', 'Flooded'])
-        
-        plt.tight_layout()
-        st.pyplot(fig)
-    else:
-        st.warning("Cannot show feature distributions without label column")
+    st.subheader("Feature Comparison: Flooded vs Non-Flooded Areas")
+    fig, axes = plt.subplots(4, 3, figsize=(15, 15))
+    features = list(display_names.keys())
+    
+    for i, feature in enumerate(features):
+        if feature in points_data.columns:
+            ax = axes[i//3, i%3]
+            sns.boxplot(x=label_col, y=feature, data=points_data, ax=ax)
+            ax.set_title(display_names[feature])
+            ax.set_xticklabels(['Non-Flooded', 'Flooded'])
+    
+    plt.tight_layout()
+    st.pyplot(fig)
     
     # Correlation analysis
     st.subheader("Feature Correlation Matrix")
