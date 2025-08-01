@@ -560,7 +560,7 @@ with tab1:
     else:
         st.success("No missing values found in the dataset")
     
-    # Display data - FIX APPLIED HERE
+    # Display data
     st.subheader("Processed Data Preview")
     
     # Format numeric columns to 4 decimal places
@@ -1179,15 +1179,12 @@ with tab5:
         
         # Add RGB color column
         gdf['color'] = gdf['risk_level'].astype(str).map({
-            'Very Low': (34, 139, 34, 180),
-            'Low': (154, 205, 50, 180),
-            'Moderate': (255, 215, 0, 180),
-            'High': (255, 140, 0, 180),
-            'Very High': (220, 20, 60, 180)
-}).copy()
-
-})
-
+            'Very Low': [34, 139, 34, 180],
+            'Low': [154, 205, 50, 180],
+            'Moderate': [255, 215, 0, 180],
+            'High': [255, 140, 0, 180],
+            'Very High': [220, 20, 60, 180]
+        })
         
         # Create PyDeck map
         st.subheader("Flood Susceptibility Probability Map")
@@ -1302,7 +1299,11 @@ with tab5:
         st.subheader("Download Results")
         if st.button("Export Susceptibility Map Data"):
             # Create download version without geometry column
-            download_data = gdf.drop(columns=['geometry', 'color']) if 'geometry' in gdf.columns else gdf.copy()
+            if isinstance(gdf, gpd.GeoDataFrame):
+                download_data = gdf.drop(columns=['geometry', 'color']) if 'geometry' in gdf.columns else gdf.copy()
+            else:
+                download_data = gdf.drop(columns=['color'], errors='ignore')
+            
             csv = download_data.to_csv(index=False)
             st.download_button(
                 label="Download CSV",
