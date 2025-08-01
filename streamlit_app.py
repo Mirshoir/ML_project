@@ -1178,12 +1178,14 @@ with tab5:
         }
         
         # Add RGB color column
-        gdf['color'] = gdf['risk_level'].map({
+        gdf['color'] = gdf['risk_level'].astype(str).map({
             'Very Low': (34, 139, 34, 180),
             'Low': (154, 205, 50, 180),
             'Moderate': (255, 215, 0, 180),
             'High': (255, 140, 0, 180),
             'Very High': (220, 20, 60, 180)
+})
+
 })
 
         
