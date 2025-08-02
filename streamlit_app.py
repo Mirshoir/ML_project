@@ -568,6 +568,9 @@ with tab1:
         # Create a copy for display
         display_data = points_data.copy()
         
+        # Convert geometry to WKT string for serialization
+        display_data['geometry'] = display_data['geometry'].apply(lambda geom: geom.wkt)
+        
         # Format only numeric columns to 4 decimal places
         numeric_cols = display_data.select_dtypes(include=[np.number]).columns
         for col in numeric_cols:
@@ -1168,24 +1171,17 @@ with tab5:
                                    bins=[0, 0.2, 0.4, 0.6, 0.8, 1],
                                    labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
         
-        # Create risk color mapping
+        # Create risk color mapping with RGBA format
         risk_colors = {
-            'Very Low': [34, 139, 34],    # Green
-            'Low': [154, 205, 50],        # Yellow-Green
-            'Moderate': [255, 215, 0],    # Yellow
-            'High': [255, 140, 0],        # Orange
-            'Very High': [220, 20, 60]    # Red
+            'Very Low': [34, 139, 34, 180],    # Green
+            'Low': [154, 205, 50, 180],         # Yellow-Green
+            'Moderate': [255, 215, 0, 180],     # Yellow
+            'High': [255, 140, 0, 180],         # Orange
+            'Very High': [220, 20, 60, 180]     # Red
         }
         
         # Add RGB color column
-        gdf['color'] = gdf['risk_level'].astype(str).map({
-    'Very Low': (34, 139, 34, 180),
-    'Low': (154, 205, 50, 180),
-    'Moderate': (255, 215, 0, 180),
-    'High': (255, 140, 0, 180),
-    'Very High': (220, 20, 60, 180)
-})
-
+        gdf['color'] = gdf['risk_level'].map(risk_colors)
         
         # Create PyDeck map
         st.subheader("Flood Susceptibility Probability Map")
@@ -1194,19 +1190,7 @@ with tab5:
         avg_lat = gdf.geometry.y.mean()
         avg_lon = gdf.geometry.x.mean()
         
-        # Create point cloud layer
-        point_cloud = pdk.Layer(
-            "PointCloudLayer",
-            data=gdf,
-            get_position=['geometry.x', 'geometry.y'],
-            get_color='color',
-            get_radius=5,
-            pickable=True,
-            radius_min_pixels=2,
-            radius_max_pixels=10
-        )
-        
-        # Create scatterplot layer (alternative)
+        # Create scatterplot layer
         scatter_layer = pdk.Layer(
             "ScatterplotLayer",
             data=gdf,
@@ -1247,23 +1231,23 @@ with tab5:
         <div class="legend-container">
             <h4>Risk Legend</h4>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(34, 139, 34);"></div>
+                <div class="legend-color" style="background-color: rgba(34, 139, 34, 0.7);"></div>
                 <span>Very Low</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(154, 205, 50);"></div>
+                <div class="legend-color" style="background-color: rgba(154, 205, 50, 0.7);"></div>
                 <span>Low</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(255, 215, 0);"></div>
+                <div class="legend-color" style="background-color: rgba(255, 215, 0, 0.7);"></div>
                 <span>Moderate</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(255, 140, 0);"></div>
+                <div class="legend-color" style="background-color: rgba(255, 140, 0, 0.7);"></div>
                 <span>High</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(220, 20, 60);"></div>
+                <div class="legend-color" style="background-color: rgba(220, 20, 60, 0.7);"></div>
                 <span>Very High</span>
             </div>
         </div>
