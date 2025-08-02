@@ -210,8 +210,8 @@ st.markdown("""
 
 # Create tabs
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 Data & Features", 
-    "🤖 Model Comparison", 
+    "📊 Data & Features",
+    "🤖 Model Comparison",
     "🌊 CNN Architecture",
     "📈 Performance Results",
     "🗺️ Susceptibility Map"
@@ -231,7 +231,9 @@ if 'label_column' not in st.session_state:
 if 'raster_files' not in st.session_state:
     st.session_state['raster_files'] = {}
 if 'model_features' not in st.session_state:
-    st.session_state['model_features'] = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM', 'DTDrainage', 'DTRiver']
+    st.session_state['model_features'] = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM',
+                                          'DTDrainage', 'DTRiver']
+
 
 # Data Processing Functions
 def extract_raster_values(shapefile, raster_files, label_col):
@@ -239,30 +241,31 @@ def extract_raster_values(shapefile, raster_files, label_col):
     try:
         # Read shapefile
         points = gpd.read_file(shapefile)
-        
+
         # Check if label column exists
         if label_col not in points.columns:
             st.error(f"Label column '{label_col}' not found in shapefile!")
             return None
-        
+
         # Initialize columns based on new feature names
-        raster_names = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM', 'DTDrainage', 'DTRiver']
-        
+        raster_names = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM', 'DTDrainage',
+                        'DTRiver']
+
         for name in raster_names:
             points[name] = 0.0
-        
+
         # Open rasters and extract values
         for name, raster_path in raster_files.items():
             with rasterio.open(raster_path) as src:
                 arr = src.read(1)
                 transform = src.transform
-                
+
                 for index, row in points.iterrows():
                     try:
                         lon = row.geometry.x
                         lat = row.geometry.y
                         row_idx, col_idx = src.index(lon, lat)
-                        
+
                         # Ensure indices are within bounds
                         if 0 <= row_idx < arr.shape[0] and 0 <= col_idx < arr.shape[1]:
                             points.at[index, name] = arr[row_idx, col_idx]
@@ -270,7 +273,7 @@ def extract_raster_values(shapefile, raster_files, label_col):
                             points.at[index, name] = np.nan
                     except Exception as e:
                         points.at[index, name] = np.nan
-        
+
         # Drop rows with missing values
         points = points.dropna(subset=raster_names)
         return points
@@ -278,17 +281,18 @@ def extract_raster_values(shapefile, raster_files, label_col):
         st.error(f"Error in raster extraction: {str(e)}")
         return None
 
+
 def handle_uploaded_files(uploaded_shp, uploaded_rasters):
     """Process uploaded files and return raster paths"""
     raster_files = {}
     temp_dir = tempfile.mkdtemp()
-    
+
     # Save shapefile and related files
     if uploaded_shp:
         shp_path = os.path.join(temp_dir, uploaded_shp.name)
         with open(shp_path, "wb") as f:
             f.write(uploaded_shp.getbuffer())
-    
+
     # Save rasters
     for raster in uploaded_rasters:
         raster_path = os.path.join(temp_dir, raster.name)
@@ -296,13 +300,14 @@ def handle_uploaded_files(uploaded_shp, uploaded_rasters):
             f.write(raster.getbuffer())
         raster_name = os.path.splitext(raster.name)[0]
         raster_files[raster_name] = raster_path
-    
+
     return shp_path, raster_files
+
 
 def train_models(X, y):
     """Train and evaluate machine learning models with 60-20-20 split"""
     results = {}
-    
+
     # Split data: 60% train, 20% validation, 20% test
     # First split: 80% (train+val) and 20% test
     X_train_val, X_test, y_train_val, y_test = train_test_split(
@@ -312,20 +317,20 @@ def train_models(X, y):
     X_train, X_val, y_train, y_val = train_test_split(
         X_train_val, y_train_val, test_size=0.25, random_state=42
     )
-    
+
     # Initialize models
     models = {
         "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
         "Support Vector Machine": SVC(probability=True, random_state=42),
         "Artificial Neural Network": MLPClassifier(hidden_layer_sizes=(50,), max_iter=500, random_state=42)
     }
-    
+
     # Train and evaluate models
     for name, model in models.items():
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
         y_proba = model.predict_proba(X_test)[:, 1]
-        
+
         results[name] = {
             "accuracy": accuracy_score(y_test, y_pred),
             "f1": f1_score(y_test, y_pred),
@@ -336,7 +341,7 @@ def train_models(X, y):
             "model": model,
             "feature_importances": model.feature_importances_ if hasattr(model, 'feature_importances_') else None
         }
-    
+
     # Simulate CNN results with lower accuracy for small dataset
     results["Convolutional Neural Network"] = {
         "accuracy": 0.82,  # Lower than ML models for small dataset
@@ -348,15 +353,16 @@ def train_models(X, y):
         "model": None,
         "feature_importances": None
     }
-    
+
     # Store split data in results for visualization
     results["data_splits"] = {
         "X_train": X_train, "y_train": y_train,
         "X_val": X_val, "y_val": y_val,
         "X_test": X_test, "y_test": y_test
     }
-    
+
     return results
+
 
 def create_cnn_model(input_shape):
     """Create a CNN model architecture"""
@@ -372,26 +378,27 @@ def create_cnn_model(input_shape):
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
+
 # Data Preparation Tab
 with tab1:
     st.markdown('<div class="subheader">Predictive Features for Flood Susceptibility</div>', unsafe_allow_html=True)
-    
+
     # File upload section
     st.markdown("### Upload Geospatial Data")
     col1, col2 = st.columns([1, 1])
-    
+
     with col1:
         uploaded_shp = st.file_uploader("Upload Shapefile (.shp)", type="shp")
         uploaded_dbf = st.file_uploader("Upload DBF file (.dbf)", type="dbf")
         uploaded_shx = st.file_uploader("Upload SHX file (.shx)", type="shx")
         uploaded_prj = st.file_uploader("Upload PRJ file (.prj)", type="prj")
-        
-        uploaded_rasters = st.file_uploader("Upload Raster Files (.tif)", 
-                                            type=["tif", "tiff"], 
+
+        uploaded_rasters = st.file_uploader("Upload Raster Files (.tif)",
+                                            type=["tif", "tiff"],
                                             accept_multiple_files=True)
-        
+
         process_data = st.button("Process Geospatial Data")
-    
+
     with col2:
         st.info("""
         **Required Files:**
@@ -405,7 +412,7 @@ with tab1:
             - DTDrainage.tif, DTRoad.tif, DTRiver.tif, CN.tif
             - FreqRainfall.tif (Frequency of extreme precipitation)
         """)
-        
+
         st.markdown("""
         <div class="info-box">
             <h3>Data Requirements</h3>
@@ -417,7 +424,7 @@ with tab1:
             </ul>
         </div>
         """, unsafe_allow_html=True)
-    
+
     # Process uploaded data
     if process_data:
         if not uploaded_shp or not uploaded_rasters:
@@ -427,7 +434,7 @@ with tab1:
                 try:
                     # Save uploaded files temporarily
                     temp_dir = tempfile.mkdtemp()
-                    
+
                     # Save shapefile components
                     shp_files = {
                         'shp': uploaded_shp,
@@ -435,15 +442,15 @@ with tab1:
                         'shx': uploaded_shx,
                         'prj': uploaded_prj
                     }
-                    
+
                     for ext, file in shp_files.items():
                         if file:
                             file_path = os.path.join(temp_dir, f"points.{ext}")
                             with open(file_path, "wb") as f:
                                 f.write(file.getbuffer())
-                    
+
                     shp_path = os.path.join(temp_dir, "points.shp")
-                    
+
                     # Save rasters
                     raster_files = {}
                     for raster in uploaded_rasters:
@@ -452,31 +459,31 @@ with tab1:
                             f.write(raster.getbuffer())
                         raster_name = os.path.splitext(raster.name)[0]
                         raster_files[raster_name] = raster_path
-                    
+
                     # Let user select label column
                     points_preview = gpd.read_file(shp_path)
                     available_columns = [col for col in points_preview.columns if col != 'geometry']
-                    
+
                     if available_columns:
                         label_col = st.selectbox("Select the flood indicator column", available_columns)
                         st.session_state['label_column'] = label_col
                     else:
                         st.error("No attribute columns found in shapefile!")
                         st.stop()
-                    
+
                     # Process data
                     points_data = extract_raster_values(shp_path, raster_files, label_col)
-                    
+
                     if points_data is not None and not points_data.empty:
                         st.session_state['points_data'] = points_data
                         st.session_state['raster_files'] = raster_files
                         st.success("Geospatial data processed successfully!")
                         st.session_state['models_trained'] = False
-                        
+
                         # Show raster visualization
                         st.subheader("Raster Visualization")
                         raster_cols = st.columns(3)
-                        
+
                         for idx, (name, path) in enumerate(raster_files.items()):
                             if idx >= 9:  # Limit to 9 displays
                                 break
@@ -489,23 +496,23 @@ with tab1:
                                     st.pyplot(fig)
                     else:
                         st.error("Failed to process geospatial data. Please check your files.")
-                    
+
                 except Exception as e:
                     st.error(f"Error processing data: {str(e)}")
-    
+
     # If no uploaded data, use sample data
     if st.session_state['points_data'] is None:
         st.warning("Using sample data. Upload your own data for real analysis.")
-        
+
         # Generate sample data with mock geometry in Berlin
         np.random.seed(42)
         data_size = 1000
-        
+
         # Flooded locations
         flood_lons = np.random.uniform(13.0, 13.8, data_size)
         flood_lats = np.random.uniform(52.3, 52.7, data_size)
         flood_geometry = [Point(lon, lat) for lon, lat in zip(flood_lons, flood_lats)]
-        
+
         flood_data = {
             'DTRoad': np.random.exponential(50, data_size),
             'Freq Rainfall': np.random.uniform(0, 10, data_size),
@@ -520,12 +527,12 @@ with tab1:
             'Label': 1  # Flooded locations
         }
         flood_gdf = gpd.GeoDataFrame(flood_data, geometry=flood_geometry, crs="EPSG:4326")
-        
+
         # Non-flooded locations
         non_flood_lons = np.random.uniform(13.0, 13.8, data_size)
         non_flood_lats = np.random.uniform(52.3, 52.7, data_size)
         non_flood_geometry = [Point(lon, lat) for lon, lat in zip(non_flood_lons, non_flood_lats)]
-        
+
         non_flood_data = {
             'DTRoad': np.random.exponential(100, data_size),
             'Freq Rainfall': np.random.uniform(0, 5, data_size),
@@ -540,14 +547,14 @@ with tab1:
             'Label': 0  # Non-flooded locations
         }
         non_flood_gdf = gpd.GeoDataFrame(non_flood_data, geometry=non_flood_geometry, crs="EPSG:4326")
-        
+
         points_data = gpd.GeoDataFrame(pd.concat([flood_gdf, non_flood_gdf], ignore_index=True), crs="EPSG:4326")
         st.session_state['points_data'] = points_data
         st.session_state['label_column'] = 'Label'
-    
+
     points_data = st.session_state['points_data']
     label_col = st.session_state['label_column']
-    
+
     # Check for null values
     st.subheader("Data Quality Check")
     null_counts = points_data.isnull().sum()
@@ -559,32 +566,32 @@ with tab1:
         st.success(f"Removed rows with missing values. New dataset size: {len(points_data)}")
     else:
         st.success("No missing values found in the dataset")
-    
+
     # Display data
     st.subheader("Processed Data Preview")
-    
+
     # Format numeric columns to 4 decimal places
     if not points_data.empty:
         # Create a copy for display
         display_data = points_data.copy()
-        
+
         # Format only numeric columns to 4 decimal places
         numeric_cols = display_data.select_dtypes(include=[np.number]).columns
         for col in numeric_cols:
             display_data[col] = display_data[col].apply(lambda x: f"{x:.4f}" if isinstance(x, (int, float)) else x)
-        
+
         # Display first 5 rows
-        st.dataframe(display_data.head())
-    
+        st.dataframe(display_data.drop(columns=["geometry"]).head())
+
     # Class distribution visualization
     st.subheader("Class Distribution")
     col1, col2 = st.columns([1, 2])
-    
+
     with col1:
         st.markdown("### Class Counts")
         class_counts = points_data[label_col].value_counts()
         st.dataframe(class_counts.rename("Count"))
-        
+
     with col2:
         fig, ax = plt.subplots(figsize=(8, 4))
         sns.countplot(x=label_col, data=points_data, ax=ax)
@@ -592,10 +599,10 @@ with tab1:
         ax.set_xticklabels(['Non-Flooded', 'Flooded'])
         ax.set_ylabel("Count")
         st.pyplot(fig)
-    
+
     # Feature distributions
     st.markdown('<div class="subheader">Feature Distributions</div>', unsafe_allow_html=True)
-    
+
     # Rename columns for display
     display_names = {
         'DEM': 'Altitude',
@@ -609,39 +616,39 @@ with tab1:
         'DTDrainage': 'Distance to Drainage',
         'Freq Rainfall': 'Frequency of Extreme Events'
     }
-    
+
     st.subheader("Feature Comparison: Flooded vs Non-Flooded Areas")
     fig, axes = plt.subplots(4, 3, figsize=(15, 15))
     features = list(display_names.keys())
-    
+
     for i, feature in enumerate(features):
         if feature in points_data.columns:
-            ax = axes[i//3, i%3]
+            ax = axes[i // 3, i % 3]
             sns.boxplot(x=label_col, y=feature, data=points_data, ax=ax)
             ax.set_title(display_names[feature])
             ax.set_xticklabels(['Non-Flooded', 'Flooded'])
-    
+
     plt.tight_layout()
     st.pyplot(fig)
-    
+
     # Correlation analysis
     st.subheader("Feature Correlation Matrix")
-    
+
     # Get numeric columns only
     numeric_cols = points_data.select_dtypes(include=[np.number]).columns.tolist()
-    
+
     # Remove label column if present
     if label_col in numeric_cols:
         numeric_cols.remove(label_col)
-    
+
     # Only proceed if we have numeric columns
     if numeric_cols and len(numeric_cols) > 1:
         # Create a numeric-only dataframe
         numeric_data = points_data[numeric_cols]
-        
+
         # Calculate correlation matrix
         corr = numeric_data.corr()
-        
+
         # Plot the heatmap
         fig, ax = plt.subplots(figsize=(12, 10))
         sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
@@ -654,8 +661,9 @@ with tab1:
 
 # Model Comparison Tab
 with tab2:
-    st.markdown('<div class="subheader">Model Comparison: Machine Learning vs Deep Learning</div>', unsafe_allow_html=True)
-    
+    st.markdown('<div class="subheader">Model Comparison: Machine Learning vs Deep Learning</div>',
+                unsafe_allow_html=True)
+
     # New research insight box
     st.markdown("""
     <div class="info-box">
@@ -670,33 +678,34 @@ with tab2:
         <p>Based on: Grinsztajn et al. (2022) and Shwartz-Ziv & Armon (2022)</p>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.session_state['points_data'] is not None and st.session_state['label_column'] in st.session_state['points_data'].columns:
+
+    if st.session_state['points_data'] is not None and st.session_state['label_column'] in st.session_state[
+        'points_data'].columns:
         points_data = st.session_state['points_data']
         label_col = st.session_state['label_column']
-        
+
         # Prepare data for modeling
         model_features = st.session_state['model_features']
-        
+
         # Check if all features are present
         missing_features = [feat for feat in model_features if feat not in points_data.columns]
         if missing_features:
             st.error(f"Missing required features: {', '.join(missing_features)}")
             st.stop()
-        
+
         X = points_data[model_features]
         y = points_data[label_col]
-        
+
         if not st.session_state['models_trained']:
             with st.spinner("Training models. This may take a few minutes..."):
                 model_results = train_models(X, y)
                 st.session_state['model_results'] = model_results
                 st.session_state['models_trained'] = True
                 st.success("Models trained successfully!")
-        
+
         if st.session_state['model_results'] is not None:
             model_results = st.session_state['model_results']
-            
+
             # Show data split information
             st.subheader("Data Split Information")
             data_splits = model_results["data_splits"]
@@ -710,15 +719,15 @@ with tab2:
                 "Percentage": ["60%", "20%", "20%"]
             })
             st.dataframe(split_info)
-            
+
             col1, col2 = st.columns([1, 1])
-            
+
             with col1:
                 st.markdown("""
                 <div class="model-card">
                     <h3>Point-based Models</h3>
                     <p>Traditional ML models using feature vectors:</p>
-                    
+
                     <div class="feature-grid">
                         <div class="feature-card">
                             <h4>Random Forest</h4>
@@ -733,7 +742,7 @@ with tab2:
                             <p>Accuracy: {:.2f}</p>
                         </div>
                     </div>
-                    
+
                     <p><b>Strengths</b>:</p>
                     <ul>
                         <li>Efficient for tabular data</li>
@@ -747,21 +756,21 @@ with tab2:
                     model_results['Support Vector Machine']['accuracy'],
                     model_results['Artificial Neural Network']['accuracy']
                 ), unsafe_allow_html=True)
-            
+
             with col2:
                 st.markdown("""
                 <div class="model-card">
                     <h3>Raster-based Model</h3>
                     <p>Convolutional Neural Network (CNN) using spatial data:</p>
-                    
+
                     <div style="text-align: center; margin: 15px 0;">
                         <img src="https://miro.medium.com/v2/resize:fit:1400/1*8q0ZJ2xJ9ZJ9ZJ9ZJ9ZJ9Q.png" 
                              width="100%" style="border-radius: 8px;">
                         <p style="font-size: 0.8em; color: #666;">CNN architecture for spatial flood prediction</p>
                     </div>
-                    
+
                     <p><b>Accuracy</b>: {:.2f}</p>
-                    
+
                     <p><b>Strengths</b>:</p>
                     <ul>
                         <li>Captures spatial patterns</li>
@@ -770,7 +779,7 @@ with tab2:
                     </ul>
                 </div>
                 """.format(model_results['Convolutional Neural Network']['accuracy']), unsafe_allow_html=True)
-            
+
             st.markdown("""
             <div class="info-box">
                 <h3>Research Finding</h3>
@@ -779,7 +788,7 @@ with tab2:
                 to achieve better performance with limited training data.</p>
             </div>
             """, unsafe_allow_html=True)
-            
+
             # Random Forest visualization
             st.markdown("""
             <div class="model-card">
@@ -799,23 +808,23 @@ with tab2:
                 </ul>
             </div>
             """, unsafe_allow_html=True)
-            
+
             # Feature importance
             st.subheader("Feature Importance (Random Forest)")
             rf_model = model_results['Random Forest']['model']
-            
+
             # Get feature importances
             importances = rf_model.feature_importances_
             feature_importance = pd.DataFrame({
                 'Feature': model_features,
                 'Importance': importances
             }).sort_values('Importance', ascending=False)
-            
+
             fig = px.bar(feature_importance, x='Importance', y='Feature', orientation='h',
                          title='Feature Importance for Random Forest Model',
                          color='Importance', color_continuous_scale='Blues')
             st.plotly_chart(fig, use_container_width=True)
-            
+
             # SHAP explanation
             st.subheader("Model Explanation (SHAP Values)")
             with st.spinner("Generating SHAP explanations..."):
@@ -824,7 +833,7 @@ with tab2:
                     X_sample = X.sample(min(100, len(X)), random_state=42)
                     explainer = shap.TreeExplainer(rf_model)
                     shap_values = explainer.shap_values(X_sample)
-                    
+
                     fig, ax = plt.subplots()
                     shap.summary_plot(shap_values, X_sample, plot_type="bar", show=False)
                     st.pyplot(fig)
@@ -838,7 +847,7 @@ with tab2:
 # CNN Architecture Tab
 with tab3:
     st.markdown('<div class="subheader">Convolutional Neural Network Architecture</div>', unsafe_allow_html=True)
-    
+
     st.markdown("""
     <div class="cnn-architecture">
         <h3>CNN Model for Spatial Flood Prediction</h3>
@@ -846,9 +855,9 @@ with tab3:
         and to demonstrate how spatial relationships can be captured with deep learning.</p>
     </div>
     """, unsafe_allow_html=True)
-    
+
     col1, col2 = st.columns([1, 1])
-    
+
     with col1:
         st.markdown("""
         <div class="model-card">
@@ -857,7 +866,7 @@ with tab3:
                 <li>10 input bands (one for each feature)</li>
                 <li>32x32 pixel neighborhoods</li>
             </ul>
-            
+
             <h4>Convolutional Layers</h4>
             <ul>
                 <li>Conv2D (32 filters, 3x3 kernel)</li>
@@ -869,7 +878,7 @@ with tab3:
             </ul>
         </div>
         """, unsafe_allow_html=True)
-        
+
         st.markdown("""
         <div class="model-card">
             <h4>Training Parameters</h4>
@@ -882,7 +891,7 @@ with tab3:
             </ul>
         </div>
         """, unsafe_allow_html=True)
-    
+
     with col2:
         st.markdown("""
         <div class="model-card">
@@ -891,14 +900,14 @@ with tab3:
                 <li>Flatten layer</li>
                 <li>Dropout (0.5) for regularization</li>
             </ul>
-            
+
             <h4>Fully Connected Layers</h4>
             <ul>
                 <li>Dense (128 units, ReLU)</li>
                 <li>Dense (64 units, ReLU)</li>
                 <li>Output layer (1 unit, sigmoid)</li>
             </ul>
-            
+
             <div style="text-align: center; margin: 15px 0;">
                 <img src="https://www.researchgate.net/profile/Md-Rabius-Sany/publication/342222206/figure/fig1/AS:900960531759106@1592384780586/Architecture-of-the-convolutional-neural-network-CNN-model.png" 
                      width="100%" style="border-radius: 8px;">
@@ -906,7 +915,7 @@ with tab3:
             </div>
         </div>
         """, unsafe_allow_html=True)
-    
+
     st.markdown("""
     <div class="info-box">
         <h3>Data Preparation for CNN</h3>
@@ -919,7 +928,7 @@ with tab3:
         </ol>
     </div>
     """, unsafe_allow_html=True)
-    
+
     # Simulate CNN model creation
     if st.button("Initialize CNN Model"):
         with st.spinner("Creating CNN architecture..."):
@@ -935,21 +944,21 @@ _________________________________________________________________
  Layer (type)                Output Shape              Param #   
 =================================================================
  conv2d (Conv2D)             (None, 30, 30, 32)        320       
-                                                                 
+
  max_pooling2d (MaxPooling2D  (None, 15, 15, 32)       0         
  )                                                               
-                                                                 
+
  conv2d_1 (Conv2D)           (None, 13, 13, 64)        18496     
-                                                                 
+
  max_pooling2d_1 (MaxPooling  (None, 6, 6, 64)         0         
  2D)                                                             
-                                                                 
+
  flatten (Flatten)           (None, 2304)              0         
-                                                                 
+
  dense (Dense)               (None, 128)               295040    
-                                                                 
+
  dense_1 (Dense)             (None, 1)                 129       
-                                                                 
+
 =================================================================
 Total params: 313,985
 Trainable params: 313,985
@@ -961,10 +970,10 @@ _________________________________________________________________</pre>
 # Performance Results Tab
 with tab4:
     st.markdown('<div class="subheader">Performance Results: Small Dataset Advantage</div>', unsafe_allow_html=True)
-    
+
     if st.session_state['model_results'] is not None:
         model_results = st.session_state['model_results']
-        
+
         # Prepare results dataframe
         results_data = []
         for model_name, metrics in model_results.items():
@@ -978,42 +987,52 @@ with tab4:
                     "ROC AUC": metrics['roc_auc'],
                     "Training Time (min)": 5 if "Convolutional" in model_name else np.random.uniform(0.5, 3)
                 })
-        
+
         results_df = pd.DataFrame(results_data)
-        
+
         # Show key metrics in cards
         st.subheader("Key Performance Metrics")
         metric_cols = st.columns(5)
         rf_metrics = results_df[results_df['Model'] == 'Random Forest'].iloc[0]
-        
+
         with metric_cols[0]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Accuracy</div></div>'.format(rf_metrics['Accuracy']), unsafe_allow_html=True)
+            st.markdown(
+                '<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Accuracy</div></div>'.format(
+                    rf_metrics['Accuracy']), unsafe_allow_html=True)
         with metric_cols[1]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">F1 Score</div></div>'.format(rf_metrics['F1 Score']), unsafe_allow_html=True)
+            st.markdown(
+                '<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">F1 Score</div></div>'.format(
+                    rf_metrics['F1 Score']), unsafe_allow_html=True)
         with metric_cols[2]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Precision</div></div>'.format(rf_metrics['Precision']), unsafe_allow_html=True)
+            st.markdown(
+                '<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Precision</div></div>'.format(
+                    rf_metrics['Precision']), unsafe_allow_html=True)
         with metric_cols[3]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Recall</div></div>'.format(rf_metrics['Recall']), unsafe_allow_html=True)
+            st.markdown(
+                '<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Recall</div></div>'.format(
+                    rf_metrics['Recall']), unsafe_allow_html=True)
         with metric_cols[4]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">ROC AUC</div></div>'.format(rf_metrics['ROC AUC']), unsafe_allow_html=True)
-        
+            st.markdown(
+                '<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">ROC AUC</div></div>'.format(
+                    rf_metrics['ROC AUC']), unsafe_allow_html=True)
+
         # Model comparison charts
         col1, col2 = st.columns([1, 1])
-        
+
         with col1:
             st.subheader("Accuracy Comparison")
             fig = px.bar(results_df, x="Model", y="Accuracy", color="Model",
                          title="Model Accuracy Comparison",
                          color_discrete_sequence=px.colors.qualitative.Pastel)
             st.plotly_chart(fig, use_container_width=True)
-        
+
         with col2:
             st.subheader("ROC AUC Comparison")
             fig = px.bar(results_df, x="Model", y="ROC AUC", color="Model",
                          title="ROC AUC Comparison",
                          color_discrete_sequence=px.colors.qualitative.Pastel)
             st.plotly_chart(fig, use_container_width=True)
-        
+
         # Add relative performance visualization
         st.subheader("Relative Performance")
         st.markdown("""
@@ -1026,10 +1045,11 @@ with tab4:
             <p style="text-align: center;">RF performance advantage for small datasets</p>
         </div>
         """.format(
-            (rf_metrics['Accuracy'] - results_df[results_df['Model'] == 'Convolutional Neural Network']['Accuracy'].values[0]) * 100,
+            (rf_metrics['Accuracy'] -
+             results_df[results_df['Model'] == 'Convolutional Neural Network']['Accuracy'].values[0]) * 100,
             (rf_metrics['Accuracy'] - 0.7) * 100 / 0.3  # Scale to 70-100% range
         ), unsafe_allow_html=True)
-        
+
         # Update key findings with new research
         st.markdown("""
         <div class="info-box">
@@ -1045,15 +1065,15 @@ with tab4:
             rf_metrics['Accuracy'] * 100,
             len(st.session_state['points_data'])
         ), unsafe_allow_html=True)
-        
+
         # Add small dataset performance comparison
         st.subheader("Performance vs Dataset Size")
-        
+
         # Create simulated data
         sizes = [50, 100, 200, 500, 1000, 5000]
         rf_acc = [0.72, 0.78, 0.82, 0.85, 0.87, 0.88]
         cnn_acc = [0.65, 0.70, 0.75, 0.82, 0.87, 0.91]
-        
+
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=sizes, y=rf_acc,
@@ -1065,12 +1085,12 @@ with tab4:
             name='CNN',
             line=dict(color='#ff7f0e', width=4, dash='dash')
         ))
-        
+
         # Add vertical line at typical flood inventory size
         fig.add_vline(x=200, line_width=2, line_dash="dot", line_color="red",
-                     annotation_text="Typical Flood Inventory", 
-                     annotation_position="top right")
-        
+                      annotation_text="Typical Flood Inventory",
+                      annotation_position="top right")
+
         fig.update_layout(
             title='Model Performance vs Dataset Size',
             xaxis_title='Number of Sample Locations',
@@ -1079,9 +1099,9 @@ with tab4:
             template='plotly_white',
             height=500
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
-        
+
         # Add interpretation
         st.markdown("""
         <div class="model-card">
@@ -1096,29 +1116,29 @@ with tab4:
             comprehensive flood inventories are rarely available.</p>
         </div>
         """, unsafe_allow_html=True)
-        
+
         # Confusion matrices
         st.subheader("Confusion Matrices")
         conf_cols = st.columns(2)
-        
+
         with conf_cols[0]:
             st.markdown("#### Random Forest")
             rf_cm = model_results['Random Forest']['confusion_matrix']
-            fig = px.imshow(rf_cm, text_auto=True, 
-                           labels=dict(x="Predicted", y="Actual", color="Count"),
-                           x=['Non-Flood', 'Flood'],
-                           y=['Non-Flood', 'Flood'],
-                           color_continuous_scale='Blues')
+            fig = px.imshow(rf_cm, text_auto=True,
+                            labels=dict(x="Predicted", y="Actual", color="Count"),
+                            x=['Non-Flood', 'Flood'],
+                            y=['Non-Flood', 'Flood'],
+                            color_continuous_scale='Blues')
             st.plotly_chart(fig, use_container_width=True)
-        
+
         with conf_cols[1]:
             st.markdown("#### CNN")
             cnn_cm = model_results['Convolutional Neural Network']['confusion_matrix']
-            fig = px.imshow(cnn_cm, text_auto=True, 
-                           labels=dict(x="Predicted", y="Actual", color="Count"),
-                           x=['Non-Flood', 'Flood'],
-                           y=['Non-Flood', 'Flood'],
-                           color_continuous_scale='Blues')
+            fig = px.imshow(cnn_cm, text_auto=True,
+                            labels=dict(x="Predicted", y="Actual", color="Count"),
+                            x=['Non-Flood', 'Flood'],
+                            y=['Non-Flood', 'Flood'],
+                            color_continuous_scale='Blues')
             st.plotly_chart(fig, use_container_width=True)
     else:
         st.warning("Please train models in the 'Model Comparison' tab first")
@@ -1126,21 +1146,21 @@ with tab4:
 # Susceptibility Map Tab
 with tab5:
     st.markdown('<div class="subheader">Flood Susceptibility Map</div>', unsafe_allow_html=True)
-    
+
     if st.session_state['points_data'] is not None and st.session_state['model_results'] is not None:
         points_data = st.session_state['points_data']
         model_results = st.session_state['model_results']
         label_col = st.session_state['label_column']
         model_features = st.session_state['model_features']
-        
+
         # Select model
         model_options = list(model_results.keys())
         model_options = [m for m in model_options if m != "data_splits"]
         selected_model = st.selectbox("Select Model for Prediction", model_options, index=0)
-        
+
         # Prepare data
         X = points_data[model_features]
-        
+
         if "Convolutional" not in selected_model:
             model = model_results[selected_model]['model']
             points_data['flood_prob'] = model.predict_proba(X)[:, 1]
@@ -1150,50 +1170,49 @@ with tab5:
             for feat in required_features:
                 if feat not in points_data.columns:
                     points_data[feat] = np.random.random(len(points_data))
-            
+
             points_data['flood_prob'] = (
-                0.3 * (100 - points_data['DEM']) / 100 +
-                0.2 * (1 / points_data['Slope'].clip(0.1, 10)) +
-                0.15 * points_data['TWI'] / 12 +
-                0.1 * (1 / points_data['DTDrainage'].clip(1, 300)) +
-                0.15 * points_data['Freq Rainfall'] / 10
+                    0.3 * (100 - points_data['DEM']) / 100 +
+                    0.2 * (1 / points_data['Slope'].clip(0.1, 10)) +
+                    0.15 * points_data['TWI'] / 12 +
+                    0.1 * (1 / points_data['DTDrainage'].clip(1, 300)) +
+                    0.15 * points_data['Freq Rainfall'] / 10
             )
             points_data['flood_prob'] = np.clip(points_data['flood_prob'], 0, 1)
-        
+
         # Create GeoDataFrame
         gdf = points_data.copy()
-        
+
         # Risk classification
-        gdf['risk_level'] = pd.cut(gdf['flood_prob'], 
+        gdf['risk_level'] = pd.cut(gdf['flood_prob'],
                                    bins=[0, 0.2, 0.4, 0.6, 0.8, 1],
                                    labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
-        
+
         # Create risk color mapping
         risk_colors = {
-            'Very Low': [34, 139, 34],    # Green
-            'Low': [154, 205, 50],        # Yellow-Green
-            'Moderate': [255, 215, 0],    # Yellow
-            'High': [255, 140, 0],        # Orange
-            'Very High': [220, 20, 60]    # Red
+            'Very Low': [34, 139, 34],  # Green
+            'Low': [154, 205, 50],  # Yellow-Green
+            'Moderate': [255, 215, 0],  # Yellow
+            'High': [255, 140, 0],  # Orange
+            'Very High': [220, 20, 60]  # Red
         }
-        
+
         # Add RGB color column
         gdf['color'] = gdf['risk_level'].astype(str).map({
-    'Very Low': (34, 139, 34, 180),
-    'Low': (154, 205, 50, 180),
-    'Moderate': (255, 215, 0, 180),
-    'High': (255, 140, 0, 180),
-    'Very High': (220, 20, 60, 180)
-})
+            'Very Low': (34, 139, 34, 180),
+            'Low': (154, 205, 50, 180),
+            'Moderate': (255, 215, 0, 180),
+            'High': (255, 140, 0, 180),
+            'Very High': (220, 20, 60, 180)
+        })
 
-        
         # Create PyDeck map
         st.subheader("Flood Susceptibility Probability Map")
-        
+
         # Calculate center for the map
         avg_lat = gdf.geometry.y.mean()
         avg_lon = gdf.geometry.x.mean()
-        
+
         # Create point cloud layer
         point_cloud = pdk.Layer(
             "PointCloudLayer",
@@ -1205,7 +1224,7 @@ with tab5:
             radius_min_pixels=2,
             radius_max_pixels=10
         )
-        
+
         # Create scatterplot layer (alternative)
         scatter_layer = pdk.Layer(
             "ScatterplotLayer",
@@ -1216,7 +1235,7 @@ with tab5:
             pickable=True,
             opacity=0.8
         )
-        
+
         # Create tooltip
         tooltip = {
             "html": "<b>Risk:</b> {risk_level}<br><b>Probability:</b> {flood_prob:.2f}",
@@ -1225,7 +1244,7 @@ with tab5:
                 "color": "white"
             }
         }
-        
+
         # Create deck
         deck = pdk.Deck(
             map_style='mapbox://styles/mapbox/light-v9',
@@ -1238,10 +1257,10 @@ with tab5:
             layers=[scatter_layer],
             tooltip=tooltip
         )
-        
+
         # Display the map
         st.pydeck_chart(deck)
-        
+
         # Add custom legend
         st.markdown("""
         <div class="legend-container">
@@ -1268,22 +1287,22 @@ with tab5:
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
+
         # Risk distribution
         st.subheader("Risk Distribution")
         col1, col2 = st.columns([1, 2])
-        
+
         with col1:
             st.markdown("### Risk Level Distribution")
             risk_counts = gdf['risk_level'].value_counts().sort_index()
-            fig = px.pie(risk_counts, 
-                         names=risk_counts.index, 
+            fig = px.pie(risk_counts,
+                         names=risk_counts.index,
                          values=risk_counts.values,
                          hole=0.4,
                          color=risk_counts.index,
                          color_discrete_sequence=['#228B22', '#9ACD32', '#FFD700', '#FF8C00', '#DC143C'])
             st.plotly_chart(fig, use_container_width=True)
-        
+
         with col2:
             st.markdown("### Risk Level by Location Type")
             if label_col in gdf.columns:
@@ -1295,7 +1314,7 @@ with tab5:
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.warning(f"Cannot show by location type - label column '{label_col}' not found")
-        
+
         # Download results
         st.subheader("Download Results")
         if st.button("Export Susceptibility Map Data"):
@@ -1304,7 +1323,7 @@ with tab5:
                 download_data = gdf.drop(columns=['geometry', 'color']) if 'geometry' in gdf.columns else gdf.copy()
             else:
                 download_data = gdf.drop(columns=['color'], errors='ignore')
-            
+
             csv = download_data.to_csv(index=False)
             st.download_button(
                 label="Download CSV",
