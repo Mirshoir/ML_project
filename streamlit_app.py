@@ -22,6 +22,8 @@ import warnings
 from shapely.geometry import Point
 from shapely import wkt
 import pydeck as pdk
+from geocube.api.core import make_geocube
+from matplotlib.colors import ListedColormap
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -193,6 +195,16 @@ st.markdown("""
         color: #555;
         stroke-width: 1;
     }
+    .raster-legend {
+        background-color: white;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        z-index: 1;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -232,6 +244,8 @@ if 'raster_files' not in st.session_state:
     st.session_state['raster_files'] = {}
 if 'model_features' not in st.session_state:
     st.session_state['model_features'] = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM', 'DTDrainage', 'DTRiver']
+if 'raster_path' not in st.session_state:
+    st.session_state['raster_path'] = None
 
 # Data Processing Functions
 def extract_raster_values(shapefile, raster_files, label_col):
@@ -371,6 +385,27 @@ def create_cnn_model(input_shape):
     ])
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return model
+
+def generate_susceptibility_raster(points_data, model_features, flood_prob_col, output_path):
+    """Generate flood susceptibility raster from model predictions"""
+    try:
+        # Create a copy of points data with predictions
+        gdf = points_data.copy()
+        
+        # Create a grid from point predictions
+        out_grid = make_geocube(
+            vector_data=gdf,
+            measurements=[flood_prob_col],
+            resolution=(-10, 10),  # 10m resolution
+            fill=0  # Fill NA with 0
+        )
+        
+        # Save as GeoTIFF
+        out_grid[flood_prob_col].rio.to_raster(output_path)
+        return True
+    except Exception as e:
+        st.error(f"Raster generation failed: {str(e)}")
+        return False
 
 # Data Preparation Tab
 with tab1:
@@ -1146,19 +1181,7 @@ with tab5:
             points_data['flood_prob'] = model.predict_proba(X)[:, 1]
         else:
             # Simulated probabilities for CNN
-            required_features = ['DEM', 'Slope', 'TWI', 'DTDrainage', 'Freq Rainfall']
-            for feat in required_features:
-                if feat not in points_data.columns:
-                    points_data[feat] = np.random.random(len(points_data))
-            
-            points_data['flood_prob'] = (
-                0.3 * (100 - points_data['DEM']) / 100 +
-                0.2 * (1 / points_data['Slope'].clip(0.1, 10)) +
-                0.15 * points_data['TWI'] / 12 +
-                0.1 * (1 / points_data['DTDrainage'].clip(1, 300)) +
-                0.15 * points_data['Freq Rainfall'] / 10
-            )
-            points_data['flood_prob'] = np.clip(points_data['flood_prob'], 0, 1)
+            points_data['flood_prob'] = np.random.random(len(points_data))
         
         # Create GeoDataFrame
         gdf = points_data.copy()
@@ -1179,34 +1202,21 @@ with tab5:
         
         # Add RGB color column
         gdf['color'] = gdf['risk_level'].astype(str).map({
-    'Very Low': (34, 139, 34, 180),
-    'Low': (154, 205, 50, 180),
-    'Moderate': (255, 215, 0, 180),
-    'High': (255, 140, 0, 180),
-    'Very High': (220, 20, 60, 180)
-})
-
+            'Very Low': (34, 139, 34, 180),
+            'Low': (154, 205, 50, 180),
+            'Moderate': (255, 215, 0, 180),
+            'High': (255, 140, 0, 180),
+            'Very High': (220, 20, 60, 180)
+        })
         
-        # Create PyDeck map
-        st.subheader("Flood Susceptibility Probability Map")
+        # Create PyDeck map for point visualization
+        st.subheader("Flood Susceptibility Point Visualization")
         
         # Calculate center for the map
         avg_lat = gdf.geometry.y.mean()
         avg_lon = gdf.geometry.x.mean()
         
-        # Create point cloud layer
-        point_cloud = pdk.Layer(
-            "PointCloudLayer",
-            data=gdf,
-            get_position=['geometry.x', 'geometry.y'],
-            get_color='color',
-            get_radius=5,
-            pickable=True,
-            radius_min_pixels=2,
-            radius_max_pixels=10
-        )
-        
-        # Create scatterplot layer (alternative)
+        # Create scatterplot layer
         scatter_layer = pdk.Layer(
             "ScatterplotLayer",
             data=gdf,
@@ -1269,6 +1279,82 @@ with tab5:
         </div>
         """, unsafe_allow_html=True)
         
+        # Add button to generate raster map
+        if st.button("Generate Susceptibility Raster Map"):
+            with st.spinner("Generating susceptibility raster. This may take a few minutes..."):
+                output_path = "Flood_susceptibility.tif"
+                if generate_susceptibility_raster(gdf, model_features, 'flood_prob', output_path):
+                    st.session_state['raster_path'] = output_path
+                    st.success("Raster map generated successfully!")
+        
+        # Display raster if generated
+        if 'raster_path' in st.session_state and st.session_state['raster_path']:
+            st.subheader("Flood Susceptibility Raster Map")
+            
+            # Classification parameters
+            classes = {
+                "Very low": (0, 0.2),
+                "Low": (0.2, 0.4),
+                "Moderate": (0.4, 0.6),
+                "High": (0.6, 0.8),
+                "Very high": (0.8, 1.0)
+            }
+            colors = ['#fee5d9', '#fcae91', '#fb6a4a', '#de2d26', '#a50f15']
+            
+            # Plot raster
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                fig, ax = plt.subplots(figsize=(10, 8))
+                with rasterio.open(st.session_state['raster_path']) as src:
+                    data = src.read(1)
+                    # Apply classification
+                    classified = np.digitize(data, bins=[0.2, 0.4, 0.6, 0.8])
+                    cmap = ListedColormap(colors)
+                    im = ax.imshow(classified, cmap=cmap, vmin=0, vmax=4)
+                    plt.axis('off')
+                    st.pyplot(fig)
+            
+            with col2:
+                st.markdown("""
+                <div class="raster-legend">
+                    <h4>Susceptibility Legend</h4>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #fee5d9;"></div>
+                        <span>Very low</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #fcae91;"></div>
+                        <span>Low</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #fb6a4a;"></div>
+                        <span>Moderate</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #de2d26;"></div>
+                        <span>High</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #a50f15;"></div>
+                        <span>Very high</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Add scale bar explanation
+                st.markdown("""
+                <div style="margin-top: 20px;">
+                    <h4>Map Scale</h4>
+                    <p>0  3  6  12 Kilometers</p>
+                    <div style="display: flex; justify-content: space-between; width: 100%; margin-top: 5px;">
+                        <div style="height: 2px; background: black; width: 25%;"></div>
+                        <div style="height: 2px; background: black; width: 25%;"></div>
+                        <div style="height: 2px; background: black; width: 25%;"></div>
+                        <div style="height: 2px; background: black; width: 25%;"></div>
+                    </div>
+                </div>
+                """)
+        
         # Risk distribution
         st.subheader("Risk Distribution")
         col1, col2 = st.columns([1, 2])
@@ -1322,4 +1408,3 @@ st.markdown("""
 **GitHub Repository:** [Machine Learning for Flood Susceptibility](https://github.com/omarseleem92/Machine_learning_for_flood_susceptibility)  
 **Data Source:** [Berlin Open Data Portal](https://daten.berlin.de/)
 """)
-
