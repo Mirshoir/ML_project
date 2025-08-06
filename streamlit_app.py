@@ -24,6 +24,7 @@ from shapely import wkt
 import pydeck as pdk
 from geocube.api.core import make_geocube
 from matplotlib.colors import ListedColormap
+import zipfile
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -411,7 +412,7 @@ def generate_susceptibility_raster(points_data, model_features, flood_prob_col, 
 with tab1:
     st.markdown('<div class="subheader">Predictive Features for Flood Susceptibility</div>', unsafe_allow_html=True)
     
-    # File upload section
+    # File upload section - UPDATED FOR ZIP UPLOAD
     st.markdown("### Upload Geospatial Data")
     col1, col2 = st.columns([1, 1])
     
@@ -421,9 +422,8 @@ with tab1:
         uploaded_shx = st.file_uploader("Upload SHX file (.shx)", type="shx")
         uploaded_prj = st.file_uploader("Upload PRJ file (.prj)", type="prj")
         
-        uploaded_rasters = st.file_uploader("Upload Raster Files (.tif)", 
-                                            type=["tif", "tiff"], 
-                                            accept_multiple_files=True)
+        # UPDATED: Changed to ZIP uploader
+        uploaded_zip = st.file_uploader("Upload Raster Files (.zip)", type="zip")
         
         process_data = st.button("Process Geospatial Data")
     
@@ -435,7 +435,7 @@ with tab1:
             - .dbf (required)
             - .shx (required)
             - .prj (recommended)
-        - Raster files for predictive features:
+        - Raster files in ZIP format:
             - DEM.tif, Slope.tif, Aspect.tif, Curvature.tif, TWI.tif
             - DTDrainage.tif, DTRoad.tif, DTRiver.tif, CN.tif
             - FreqRainfall.tif (Frequency of extreme precipitation)
@@ -446,17 +446,17 @@ with tab1:
             <h3>Data Requirements</h3>
             <ul>
                 <li>Shapefile should contain point locations of flood events</li>
-                <li>Raster files should cover the same geographic extent</li>
+                <li>Raster files should be zipped together in a single ZIP file</li>
                 <li>All rasters should have the same resolution and coordinate system</li>
                 <li>Points should be within the raster coverage area</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
     
-    # Process uploaded data
+    # Process uploaded data - UPDATED FOR ZIP PROCESSING
     if process_data:
-        if not uploaded_shp or not uploaded_rasters:
-            st.warning("Please upload both a shapefile and raster files")
+        if not uploaded_shp or not uploaded_zip:
+            st.warning("Please upload both a shapefile and raster ZIP file")
         else:
             with st.spinner("Processing geospatial data..."):
                 try:
@@ -479,14 +479,28 @@ with tab1:
                     
                     shp_path = os.path.join(temp_dir, "points.shp")
                     
-                    # Save rasters
+                    # Process ZIP file - NEW SECTION
+                    zip_path = os.path.join(temp_dir, "rasters.zip")
+                    with open(zip_path, "wb") as f:
+                        f.write(uploaded_zip.getbuffer())
+                    
+                    # Extract ZIP to rasters directory
+                    raster_dir = os.path.join(temp_dir, "rasters")
+                    os.makedirs(raster_dir, exist_ok=True)
+                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                        zip_ref.extractall(raster_dir)
+                    
+                    # Get list of TIFF files
                     raster_files = {}
-                    for raster in uploaded_rasters:
-                        raster_path = os.path.join(temp_dir, raster.name)
-                        with open(raster_path, "wb") as f:
-                            f.write(raster.getbuffer())
-                        raster_name = os.path.splitext(raster.name)[0]
-                        raster_files[raster_name] = raster_path
+                    for file in os.listdir(raster_dir):
+                        if file.lower().endswith(('.tif', '.tiff')):
+                            raster_name = os.path.splitext(file)[0]
+                            raster_path = os.path.join(raster_dir, file)
+                            raster_files[raster_name] = raster_path
+                    
+                    if not raster_files:
+                        st.error("No TIFF files found in the ZIP archive!")
+                        st.stop()
                     
                     # Let user select label column
                     points_preview = gpd.read_file(shp_path)
