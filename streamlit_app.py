@@ -20,7 +20,6 @@ import tempfile
 import os
 import warnings
 from shapely.geometry import Point
-from shapely import wkt
 import pydeck as pdk
 from geocube.api.core import make_geocube
 from matplotlib.colors import ListedColormap
@@ -302,22 +301,50 @@ def extract_raster_values(shapefile, raster_files, label_col):
 
 def handle_uploaded_files(uploaded_shp, uploaded_rasters):
     """Process uploaded files and return raster paths"""
-    raster_files = {}
     temp_dir = tempfile.mkdtemp()
     
-    # Save shapefile and related files
-    if uploaded_shp:
-        shp_path = os.path.join(temp_dir, uploaded_shp.name)
-        with open(shp_path, "wb") as f:
-            f.write(uploaded_shp.getbuffer())
+    # Save shapefile components
+    shp_files = {
+        'shp': uploaded_shp,
+        'dbf': None,
+        'shx': None,
+        'prj': None
+    }
+    
+    # Save all uploaded files
+    for file in uploaded_rasters:
+        if file.name.endswith('.shp'):
+            shp_files['shp'] = file
+        elif file.name.endswith('.dbf'):
+            shp_files['dbf'] = file
+        elif file.name.endswith('.shx'):
+            shp_files['shx'] = file
+        elif file.name.endswith('.prj'):
+            shp_files['prj'] = file
+    
+    # Save shapefile components
+    shp_path = None
+    for ext, file in shp_files.items():
+        if file:
+            file_path = os.path.join(temp_dir, f"points.{ext}")
+            with open(file_path, "wb") as f:
+                f.write(file.getbuffer())
+            if ext == 'shp':
+                shp_path = file_path
+    
+    if not shp_path:
+        st.error("No shapefile (.shp) found in uploaded files!")
+        return None, {}
     
     # Save rasters
-    for raster in uploaded_rasters:
-        raster_path = os.path.join(temp_dir, raster.name)
-        with open(raster_path, "wb") as f:
-            f.write(raster.getbuffer())
-        raster_name = os.path.splitext(raster.name)[0]
-        raster_files[raster_name] = raster_path
+    raster_files = {}
+    for file in uploaded_rasters:
+        if file.name.lower().endswith(('.tif', '.tiff')):
+            raster_path = os.path.join(temp_dir, file.name)
+            with open(raster_path, "wb") as f:
+                f.write(file.getbuffer())
+            raster_name = os.path.splitext(file.name)[0]
+            raster_files[raster_name] = raster_path
     
     return shp_path, raster_files
 
@@ -442,14 +469,9 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        uploaded_shp = st.file_uploader("Upload Shapefile (.shp)", type="shp")
-        uploaded_dbf = st.file_uploader("Upload DBF file (.dbf)", type="dbf")
-        uploaded_shx = st.file_uploader("Upload SHX file (.shx)", type="shx")
-        uploaded_prj = st.file_uploader("Upload PRJ file (.prj)", type="prj")
-        
-        # UPDATED: Changed to ZIP uploader
-        uploaded_zip = st.file_uploader("Upload Raster Files (.zip)", type="zip", 
-                                       help="ZIP file containing all raster files")
+        uploaded_files = st.file_uploader("Upload Geospatial Files", 
+                                         type=["shp", "dbf", "shx", "prj", "tif", "tiff"],
+                                         accept_multiple_files=True)
         
         process_data = st.button("Process Geospatial Data")
     
@@ -461,7 +483,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
             - .dbf (required)
             - .shx (required)
             - .prj (recommended)
-        - Raster files in ZIP format:
+        - Raster files:
             - DEM.tif, Slope.tif, Aspect.tif, Curvature.tif, TWI.tif
             - DTDrainage.tif, DTRoad.tif, DTRiver.tif, CN.tif
             - FreqRainfall.tif (Frequency of extreme precipitation)
@@ -472,60 +494,30 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
             <h3>Data Requirements</h3>
             <ul>
                 <li>Shapefile should contain point locations of flood events</li>
-                <li>Raster files should be zipped together in a single ZIP file</li>
+                <li>All shapefile components must be uploaded together</li>
+                <li>Raster files should be uploaded separately</li>
                 <li>All rasters should have the same resolution and coordinate system</li>
                 <li>Points should be within the raster coverage area</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
     
-    # Process uploaded data - UPDATED FOR ZIP PROCESSING
+    # Process uploaded data
     if process_data:
-        if not uploaded_shp or not uploaded_zip:
-            st.warning("Please upload both a shapefile and raster ZIP file")
+        shapefile_components = [f for f in uploaded_files if f.name.lower().endswith(('.shp', '.dbf', '.shx', '.prj'))]
+        raster_files = [f for f in uploaded_files if f.name.lower().endswith(('.tif', '.tiff'))]
+        
+        if not shapefile_components:
+            st.warning("Please upload shapefile components (.shp, .dbf, .shx)")
+        elif not raster_files:
+            st.warning("Please upload raster files (.tif, .tiff)")
         else:
             with st.spinner("Processing geospatial data..."):
                 try:
-                    # Save uploaded files temporarily
-                    temp_dir = tempfile.mkdtemp()
+                    shp_path, raster_files_dict = handle_uploaded_files(None, uploaded_files)
                     
-                    # Save shapefile components
-                    shp_files = {
-                        'shp': uploaded_shp,
-                        'dbf': uploaded_dbf,
-                        'shx': uploaded_shx,
-                        'prj': uploaded_prj
-                    }
-                    
-                    for ext, file in shp_files.items():
-                        if file:
-                            file_path = os.path.join(temp_dir, f"points.{ext}")
-                            with open(file_path, "wb") as f:
-                                f.write(file.getbuffer())
-                    
-                    shp_path = os.path.join(temp_dir, "points.shp")
-                    
-                    # Process ZIP file - NEW SECTION
-                    zip_path = os.path.join(temp_dir, "rasters.zip")
-                    with open(zip_path, "wb") as f:
-                        f.write(uploaded_zip.getbuffer())
-                    
-                    # Extract ZIP to rasters directory
-                    raster_dir = os.path.join(temp_dir, "rasters")
-                    os.makedirs(raster_dir, exist_ok=True)
-                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                        zip_ref.extractall(raster_dir)
-                    
-                    # Get list of TIFF files
-                    raster_files = {}
-                    for file in os.listdir(raster_dir):
-                        if file.lower().endswith(('.tif', '.tiff')):
-                            raster_name = os.path.splitext(file)[0]
-                            raster_path = os.path.join(raster_dir, file)
-                            raster_files[raster_name] = raster_path
-                    
-                    if not raster_files:
-                        st.error("No TIFF files found in the ZIP archive!")
+                    if not shp_path:
+                        st.error("Failed to process shapefile components")
                         st.stop()
                     
                     # Let user select label column
@@ -540,11 +532,11 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
                         st.stop()
                     
                     # Process data
-                    points_data = extract_raster_values(shp_path, raster_files, label_col)
+                    points_data = extract_raster_values(shp_path, raster_files_dict, label_col)
                     
                     if points_data is not None and not points_data.empty:
                         st.session_state['points_data'] = points_data
-                        st.session_state['raster_files'] = raster_files
+                        st.session_state['raster_files'] = raster_files_dict
                         st.success("Geospatial data processed successfully!")
                         st.session_state['models_trained'] = False
                         
@@ -552,7 +544,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
                         st.subheader("Raster Visualization")
                         raster_cols = st.columns(3)
                         
-                        for idx, (name, path) in enumerate(raster_files.items()):
+                        for idx, (name, path) in enumerate(raster_files_dict.items()):
                             if idx >= 9:  # Limit to 9 displays
                                 break
                             with raster_cols[idx % 3]:
@@ -1226,41 +1218,44 @@ with tab5:
         # Create GeoDataFrame
         gdf = points_data.copy()
         
+        # Ensure we have a valid CRS
+        if gdf.crs is None:
+            gdf.set_crs(epsg=4326, inplace=True)
+        elif gdf.crs != "EPSG:4326":
+            gdf = gdf.to_crs(epsg=4326)
+        
+        # Add longitude and latitude columns
+        gdf['lon'] = gdf.geometry.x
+        gdf['lat'] = gdf.geometry.y
+        
         # Risk classification
         gdf['risk_level'] = pd.cut(gdf['flood_prob'], 
                                    bins=[0, 0.2, 0.4, 0.6, 0.8, 1],
                                    labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
         
-        # Create risk color mapping
+        # Add RGB color column
         risk_colors = {
-            'Very Low': [34, 139, 34],    # Green
-            'Low': [154, 205, 50],        # Yellow-Green
-            'Moderate': [255, 215, 0],    # Yellow
-            'High': [255, 140, 0],        # Orange
-            'Very High': [220, 20, 60]    # Red
+            'Very Low': (34, 139, 34, 180),    # Green
+            'Low': (154, 205, 50, 180),        # Yellow-Green
+            'Moderate': (255, 215, 0, 180),    # Yellow
+            'High': (255, 140, 0, 180),        # Orange
+            'Very High': (220, 20, 60, 180)    # Red
         }
         
-        # Add RGB color column
-        gdf['color'] = gdf['risk_level'].astype(str).map({
-            'Very Low': (34, 139, 34, 180),
-            'Low': (154, 205, 50, 180),
-            'Moderate': (255, 215, 0, 180),
-            'High': (255, 140, 0, 180),
-            'Very High': (220, 20, 60, 180)
-        })
+        gdf['color'] = gdf['risk_level'].map(risk_colors)
         
         # Create PyDeck map for point visualization
         st.subheader("Flood Susceptibility Point Visualization")
         
         # Calculate center for the map
-        avg_lat = gdf.geometry.y.mean()
-        avg_lon = gdf.geometry.x.mean()
+        avg_lat = gdf['lat'].mean()
+        avg_lon = gdf['lon'].mean()
         
         # Create scatterplot layer
         scatter_layer = pdk.Layer(
             "ScatterplotLayer",
             data=gdf,
-            get_position=['geometry.x', 'geometry.y'],
+            get_position=['lon', 'lat'],
             get_fill_color='color',
             get_radius=50,
             pickable=True,
