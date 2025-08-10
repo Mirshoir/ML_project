@@ -299,27 +299,27 @@ def extract_raster_values(shapefile, raster_files, label_col):
         st.error(f"Error in raster extraction: {str(e)}")
         return None
 
-def handle_uploaded_files(uploaded_shp, uploaded_rasters):
+def handle_uploaded_files(uploaded_files):
     """Process uploaded files and return raster paths"""
     temp_dir = tempfile.mkdtemp()
     
     # Save shapefile components
     shp_files = {
-        'shp': uploaded_shp,
+        'shp': None,
         'dbf': None,
         'shx': None,
         'prj': None
     }
     
     # Save all uploaded files
-    for file in uploaded_rasters:
-        if file.name.endswith('.shp'):
+    for file in uploaded_files:
+        if file.name.lower().endswith('.shp'):
             shp_files['shp'] = file
-        elif file.name.endswith('.dbf'):
+        elif file.name.lower().endswith('.dbf'):
             shp_files['dbf'] = file
-        elif file.name.endswith('.shx'):
+        elif file.name.lower().endswith('.shx'):
             shp_files['shx'] = file
-        elif file.name.endswith('.prj'):
+        elif file.name.lower().endswith('.prj'):
             shp_files['prj'] = file
     
     # Save shapefile components
@@ -338,7 +338,7 @@ def handle_uploaded_files(uploaded_shp, uploaded_rasters):
     
     # Save rasters
     raster_files = {}
-    for file in uploaded_rasters:
+    for file in uploaded_files:
         if file.name.lower().endswith(('.tif', '.tiff')):
             raster_path = os.path.join(temp_dir, file.name)
             with open(raster_path, "wb") as f:
@@ -446,7 +446,7 @@ def generate_susceptibility_raster(points_data, model_features, flood_prob_col, 
 with tab1:
     st.markdown('<div class="subheader">Predictive Features for Flood Susceptibility</div>', unsafe_allow_html=True)
     
-    # File upload section - UPDATED FOR ZIP UPLOAD
+    # File upload section
     st.markdown("### Upload Geospatial Data")
     
     # Upload configuration instructions
@@ -503,62 +503,56 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         """, unsafe_allow_html=True)
     
     # Process uploaded data
-    if process_data:
-        shapefile_components = [f for f in uploaded_files if f.name.lower().endswith(('.shp', '.dbf', '.shx', '.prj'))]
-        raster_files = [f for f in uploaded_files if f.name.lower().endswith(('.tif', '.tiff'))]
-        
-        if not shapefile_components:
-            st.warning("Please upload shapefile components (.shp, .dbf, .shx)")
-        elif not raster_files:
-            st.warning("Please upload raster files (.tif, .tiff)")
-        else:
-            with st.spinner("Processing geospatial data..."):
-                try:
-                    shp_path, raster_files_dict = handle_uploaded_files(None, uploaded_files)
+    if process_data and uploaded_files:
+        with st.spinner("Processing geospatial data..."):
+            try:
+                shp_path, raster_files_dict = handle_uploaded_files(uploaded_files)
+                
+                if not shp_path:
+                    st.error("Failed to process shapefile components")
+                    st.stop()
+                
+                # Let user select label column
+                points_preview = gpd.read_file(shp_path)
+                available_columns = [col for col in points_preview.columns if col != 'geometry']
+                
+                if available_columns:
+                    label_col = st.selectbox("Select the flood indicator column", available_columns)
+                    st.session_state['label_column'] = label_col
+                else:
+                    st.error("No attribute columns found in shapefile!")
+                    st.stop()
+                
+                # Process data
+                points_data = extract_raster_values(shp_path, raster_files_dict, label_col)
+                
+                if points_data is not None and not points_data.empty:
+                    st.session_state['points_data'] = points_data
+                    st.session_state['raster_files'] = raster_files_dict
+                    st.success("Geospatial data processed successfully!")
+                    st.session_state['models_trained'] = False
                     
-                    if not shp_path:
-                        st.error("Failed to process shapefile components")
-                        st.stop()
+                    # Show raster visualization
+                    st.subheader("Raster Visualization")
+                    raster_cols = st.columns(3)
                     
-                    # Let user select label column
-                    points_preview = gpd.read_file(shp_path)
-                    available_columns = [col for col in points_preview.columns if col != 'geometry']
-                    
-                    if available_columns:
-                        label_col = st.selectbox("Select the flood indicator column", available_columns)
-                        st.session_state['label_column'] = label_col
-                    else:
-                        st.error("No attribute columns found in shapefile!")
-                        st.stop()
-                    
-                    # Process data
-                    points_data = extract_raster_values(shp_path, raster_files_dict, label_col)
-                    
-                    if points_data is not None and not points_data.empty:
-                        st.session_state['points_data'] = points_data
-                        st.session_state['raster_files'] = raster_files_dict
-                        st.success("Geospatial data processed successfully!")
-                        st.session_state['models_trained'] = False
-                        
-                        # Show raster visualization
-                        st.subheader("Raster Visualization")
-                        raster_cols = st.columns(3)
-                        
-                        for idx, (name, path) in enumerate(raster_files_dict.items()):
-                            if idx >= 9:  # Limit to 9 displays
-                                break
-                            with raster_cols[idx % 3]:
-                                st.markdown(f"**{name}**")
-                                with rasterio.open(path) as src:
-                                    fig, ax = plt.subplots(figsize=(5, 5))
-                                    show(src, ax=ax, cmap='viridis')
-                                    plt.axis('off')
-                                    st.pyplot(fig)
-                    else:
-                        st.error("Failed to process geospatial data. Please check your files.")
-                    
-                except Exception as e:
-                    st.error(f"Error processing data: {str(e)}")
+                    for idx, (name, path) in enumerate(raster_files_dict.items()):
+                        if idx >= 9:  # Limit to 9 displays
+                            break
+                        with raster_cols[idx % 3]:
+                            st.markdown(f"**{name}**")
+                            with rasterio.open(path) as src:
+                                fig, ax = plt.subplots(figsize=(5, 5))
+                                show(src, ax=ax, cmap='viridis')
+                                plt.axis('off')
+                                st.pyplot(fig)
+                else:
+                    st.error("Failed to process geospatial data. Please check your files.")
+                
+            except Exception as e:
+                st.error(f"Error processing data: {str(e)}")
+    elif process_data and not uploaded_files:
+        st.warning("Please upload files before processing")
     
     # If no uploaded data, use sample data
     if st.session_state['points_data'] is None:
@@ -1220,7 +1214,7 @@ with tab5:
         
         # Ensure we have a valid CRS
         if gdf.crs is None:
-            gdf.set_crs(epsg=4326, inplace=True)
+            gdf = gdf.set_crs(epsg=4326)
         elif gdf.crs != "EPSG:4326":
             gdf = gdf.to_crs(epsg=4326)
         
@@ -1233,16 +1227,18 @@ with tab5:
                                    bins=[0, 0.2, 0.4, 0.6, 0.8, 1],
                                    labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
         
-        # Add RGB color column
+        # Create color mapping - FIXED: Convert risk_level to string before mapping
         risk_colors = {
-            'Very Low': (34, 139, 34, 180),    # Green
-            'Low': (154, 205, 50, 180),        # Yellow-Green
-            'Moderate': (255, 215, 0, 180),    # Yellow
-            'High': (255, 140, 0, 180),        # Orange
-            'Very High': (220, 20, 60, 180)    # Red
+            'Very Low': [34, 139, 34, 180],    # Green
+            'Low': [154, 205, 50, 180],        # Yellow-Green
+            'Moderate': [255, 215, 0, 180],    # Yellow
+            'High': [255, 140, 0, 180],        # Orange
+            'Very High': [220, 20, 60, 180]    # Red
         }
         
-        gdf['color'] = gdf['risk_level'].map(risk_colors)
+        # Convert risk_level to string before mapping
+        gdf['risk_level_str'] = gdf['risk_level'].astype(str)
+        gdf['color'] = gdf['risk_level_str'].map(risk_colors)
         
         # Create PyDeck map for point visualization
         st.subheader("Flood Susceptibility Point Visualization")
