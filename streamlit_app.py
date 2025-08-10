@@ -206,6 +206,13 @@ st.markdown("""
         left: 20px;
         z-index: 1;
     }
+    .upload-instruction {
+        background-color: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 15px;
+        border-radius: 0 8px 8px 0;
+        margin: 15px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -414,6 +421,24 @@ with tab1:
     
     # File upload section - UPDATED FOR ZIP UPLOAD
     st.markdown("### Upload Geospatial Data")
+    
+    # Upload configuration instructions
+    st.markdown("""
+    <div class="upload-instruction">
+        <h4>Uploading Large Files</h4>
+        <p>To upload files larger than 200MB:</p>
+        <ol>
+            <li>Create a file named <code>config.toml</code> in your Streamlit config directory</li>
+            <li>Add these lines to the file:</li>
+        </ol>
+        <pre>
+[server]
+maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
+        </pre>
+        <p>This will increase the upload limit to 1000MB (1GB).</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     col1, col2 = st.columns([1, 1])
     
     with col1:
@@ -423,7 +448,8 @@ with tab1:
         uploaded_prj = st.file_uploader("Upload PRJ file (.prj)", type="prj")
         
         # UPDATED: Changed to ZIP uploader
-        uploaded_zip = st.file_uploader("Upload Raster Files (.zip)", type="zip")
+        uploaded_zip = st.file_uploader("Upload Raster Files (.zip)", type="zip", 
+                                       help="ZIP file containing all raster files")
         
         process_data = st.button("Process Geospatial Data")
     
