@@ -24,6 +24,9 @@ import pydeck as pdk
 from geocube.api.core import make_geocube
 from matplotlib.colors import ListedColormap
 import zipfile
+import glob
+from osgeo import ogr
+from osgeo import gdal
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -228,7 +231,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Create tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🛠️ Data Processing", 
     "📊 Data & Features", 
     "🤖 Model Comparison", 
     "🌊 CNN Architecture",
@@ -253,6 +257,10 @@ if 'model_features' not in st.session_state:
     st.session_state['model_features'] = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM', 'DTDrainage', 'DTRiver']
 if 'raster_path' not in st.session_state:
     st.session_state['raster_path'] = None
+if 'processing_complete' not in st.session_state:
+    st.session_state['processing_complete'] = False
+if 'composite_raster_path' not in st.session_state:
+    st.session_state['composite_raster_path'] = None
 
 # Data Processing Functions
 def extract_raster_values(shapefile, raster_files, label_col):
@@ -348,6 +356,71 @@ def handle_uploaded_files(uploaded_files):
     
     return shp_path, raster_files
 
+def process_shapefile_and_raster(points_shp_path, composite_raster_path, buffer_distance, output_dir):
+    """Process shapefile and create square buffers, then clip raster"""
+    try:
+        # Read the points shapefile
+        points = gpd.read_file(points_shp_path)
+        
+        # Create square buffers
+        points['geometry'] = points.buffer(buffer_distance)
+        points['geometry'] = points.geometry.envelope
+        
+        # Save the square buffers
+        squares_path = os.path.join(output_dir, "squares.shp")
+        points.to_file(squares_path)
+        
+        # Create directories for divided shapefiles
+        divided_dir = os.path.join(output_dir, "divided")
+        os.makedirs(divided_dir, exist_ok=True)
+        
+        # Create directories for clipped rasters
+        flooded_dir = os.path.join(output_dir, "Predictive_features", "Flooded")
+        not_flooded_dir = os.path.join(output_dir, "Predictive_features", "NotFlooded")
+        os.makedirs(flooded_dir, exist_ok=True)
+        os.makedirs(not_flooded_dir, exist_ok=True)
+        
+        # Split into individual shapefiles
+        for index, feature in points.iterrows():
+            feature_gdf = points.iloc[[index]]
+            feature_gdf.to_file(os.path.join(divided_dir, f"feature_{index}.shp"))
+        
+        # Clip raster for each feature
+        shp_files = glob.glob(os.path.join(divided_dir, '*.shp'))
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i, file in enumerate(shp_files):
+            status_text.text(f"Processing {i+1}/{len(shp_files)}: {os.path.basename(file)}")
+            progress_bar.progress((i+1)/len(shp_files))
+            
+            # Read the shapefile to check label
+            shp_ds = gpd.read_file(file)
+            
+            # Get the base name without extension
+            base_name = os.path.splitext(os.path.basename(file))[0]
+            
+            # Clip based on label
+            if shp_ds['Label'][0] == 0:  # Not flooded
+                output_path = os.path.join(not_flooded_dir, f"{base_name}.tif")
+            else:  # Flooded
+                output_path = os.path.join(flooded_dir, f"{base_name}.tif")
+            
+            # Clip the raster
+            ds = gdal.Open(composite_raster_path)
+            dsClip = gdal.Warp(output_path, ds, cutlineDSName=file,
+                              cropToCutline=True, dstNodata=np.nan)
+        
+        status_text.text("Processing complete!")
+        progress_bar.empty()
+        
+        return True, squares_path, divided_dir, flooded_dir, not_flooded_dir
+        
+    except Exception as e:
+        st.error(f"Error in processing: {str(e)}")
+        return False, None, None, None, None
+
 def train_models(X, y):
     """Train and evaluate machine learning models with 60-20-20 split"""
     results = {}
@@ -441,6 +514,168 @@ def generate_susceptibility_raster(points_data, model_features, flood_prob_col, 
     except Exception as e:
         st.error(f"Raster generation failed: {str(e)}")
         return False
+
+# Data Processing Tab
+with tab0:
+    st.markdown('<div class="subheader">Data Processing: Shapefile and Raster Preparation</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="info-box">
+        <h3>Data Processing Pipeline</h3>
+        <p>This section processes your shapefile points and composite raster to create:</p>
+        <ol>
+            <li>Square buffers around each point</li>
+            <li>Individual shapefiles for each point</li>
+            <li>Clipped raster images for each point</li>
+            <li>Organization of clipped rasters by flood status</li>
+        </ol>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # File upload section
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.markdown("### Upload Data")
+        uploaded_files = st.file_uploader("Upload Shapefile and Raster", 
+                                         type=["shp", "dbf", "shx", "prj", "tif", "tiff"],
+                                         accept_multiple_files=True)
+        
+        if uploaded_files:
+            # Find shapefile and raster
+            shp_file = None
+            raster_file = None
+            
+            for file in uploaded_files:
+                if file.name.lower().endswith('.shp'):
+                    shp_file = file
+                elif file.name.lower().endswith('.tif') or file.name.lower().endswith('.tiff'):
+                    raster_file = file
+            
+            if shp_file and raster_file:
+                st.success("Shapefile and raster found!")
+                
+                # Buffer distance input
+                buffer_dist = st.number_input("Buffer Distance (units)", min_value=1, value=115, 
+                                            help="Distance for creating square buffers around points")
+                
+                # Process button
+                if st.button("Process Data"):
+                    with st.spinner("Processing data..."):
+                        # Create temporary directory for output
+                        output_dir = tempfile.mkdtemp()
+                        
+                        # Save uploaded files
+                        points_path = os.path.join(output_dir, "points.shp")
+                        raster_path = os.path.join(output_dir, "composite_raster.tif")
+                        
+                        # Save shapefile components
+                        for file in uploaded_files:
+                            if file.name.lower().endswith(('.shp', '.dbf', '.shx', '.prj')):
+                                ext = os.path.splitext(file.name)[1]
+                                save_path = os.path.join(output_dir, f"points{ext}")
+                                with open(save_path, "wb") as f:
+                                    f.write(file.getbuffer())
+                        
+                        # Save raster
+                        with open(raster_path, "wb") as f:
+                            f.write(raster_file.getbuffer())
+                        
+                        # Process the data
+                        success, squares_path, divided_dir, flooded_dir, not_flooded_dir = process_shapefile_and_raster(
+                            points_path, raster_path, buffer_dist, output_dir
+                        )
+                        
+                        if success:
+                            st.session_state['processing_complete'] = True
+                            st.session_state['composite_raster_path'] = raster_path
+                            st.success("Data processing completed successfully!")
+                            
+                            # Show results
+                            st.subheader("Processing Results")
+                            
+                            col1, col2, col3 = st.columns(3)
+                            
+                            with col1:
+                                st.metric("Square Buffers Created", "1 file")
+                                if os.path.exists(squares_path):
+                                    with open(squares_path, "rb") as f:
+                                        st.download_button(
+                                            label="Download Squares Shapefile",
+                                            data=f,
+                                            file_name="squares.zip",
+                                            mime="application/zip"
+                                        )
+                            
+                            with col2:
+                                divided_files = glob.glob(os.path.join(divided_dir, "*.shp"))
+                                st.metric("Individual Shapefiles", f"{len(divided_files)} files")
+                                # Create zip of divided files
+                                zip_path = os.path.join(output_dir, "divided_files.zip")
+                                with zipfile.ZipFile(zip_path, 'w') as zipf:
+                                    for root, dirs, files in os.walk(divided_dir):
+                                        for file in files:
+                                            zipf.write(os.path.join(root, file), file)
+                                
+                                with open(zip_path, "rb") as f:
+                                    st.download_button(
+                                        label="Download Divided Shapefiles",
+                                        data=f,
+                                        file_name="divided_shapefiles.zip",
+                                        mime="application/zip"
+                                    )
+                            
+                            with col3:
+                                flooded_files = glob.glob(os.path.join(flooded_dir, "*.tif"))
+                                not_flooded_files = glob.glob(os.path.join(not_flooded_dir, "*.tif"))
+                                st.metric("Clipped Rasters", f"{len(flooded_files) + len(not_flooded_files)} files")
+                                
+                                # Create zip of clipped rasters
+                                raster_zip_path = os.path.join(output_dir, "clipped_rasters.zip")
+                                with zipfile.ZipFile(raster_zip_path, 'w') as zipf:
+                                    for root, dirs, files in os.walk(os.path.dirname(flooded_dir)):
+                                        for file in files:
+                                            if file.endswith('.tif'):
+                                                zipf.write(os.path.join(root, file), file)
+                                
+                                with open(raster_zip_path, "rb") as f:
+                                    st.download_button(
+                                        label="Download Clipped Rasters",
+                                        data=f,
+                                        file_name="clipped_rasters.zip",
+                                        mime="application/zip"
+                                    )
+            
+            else:
+                if not shp_file:
+                    st.error("Please upload a shapefile (.shp)")
+                if not raster_file:
+                    st.error("Please upload a composite raster (.tif)")
+    
+    with col2:
+        st.markdown("### Processing Details")
+        st.markdown("""
+        <div class="info-box">
+            <h4>What happens during processing:</h4>
+            <ol>
+                <li><b>Square Buffer Creation:</b> Creates square buffers around each point with the specified distance</li>
+                <li><b>Shapefile Division:</b> Splits the points into individual shapefiles</li>
+                <li><b>Raster Clipping:</b> Clips the composite raster for each point using the square buffer</li>
+                <li><b>Organization:</b> Saves clipped rasters in separate folders based on flood status</li>
+            </ol>
+            
+            <h4>Requirements:</h4>
+            <ul>
+                <li>Shapefile must have a 'Label' column (0 for non-flooded, 1 for flooded)</li>
+                <li>Composite raster should cover all point locations</li>
+                <li>All files should use the same coordinate reference system</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Visualization of the process
+        st.markdown("### Processing Visualization")
+        st.image("https://i.imgur.com/9GqQz7l.png", caption="Data Processing Pipeline", use_column_width=True)
 
 # Data Preparation Tab
 with tab1:
