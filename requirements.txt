@@ -13,8 +13,7 @@ contextily>=1.4.0
 pyproj>=3.6.0
 descartes>=1.1.0
 pyarrow>=14.0.2
-GDAL==3.6.4   # provides osgeo.gdal, osgeo.ogr, etc.
-
+gdal>=3.4.0
 # Machine learning and deep learning
 scikit-learn>=1.3.0
 tensorflow>=2.13.0
