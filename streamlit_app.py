@@ -865,7 +865,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         display_data = points_data.copy()
         
         # Format only numeric columns to 4 decimal places
-        numeric_cols = display_data.select_dtypes(include=[np.number]).columns
+        numeric_cols = display_data.select_dtypes(include([np.number])).columns
         for col in numeric_cols:
             display_data[col] = display_data[col].apply(lambda x: f"{x:.4f}" if isinstance(x, (int, float)) else x)
         
