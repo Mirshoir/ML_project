@@ -1,8 +1,7 @@
+# Core geospatial system libs
 libgdal-dev
 gdal-bin
 python3-gdal
 libgeos-dev
 libproj-dev
 libspatialindex-dev
-
-
