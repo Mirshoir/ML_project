@@ -4,16 +4,18 @@ matplotlib>=3.7.0
 seaborn>=0.12.2
 plotly>=5.18.0
 shap>=0.44.1
-geocube
-# Geospatial processing
-geopandas>=0.13.2
+geocube>=0.5.0
+
+# Geospatial processing - FIXED GDAL dependency
+GDAL>=3.4.1  # This is the correct package name for GDAL
+geopandas>=0.14.3
 rasterio>=1.3.8
 contextily>=1.4.0
 pyproj>=3.6.0
 descartes>=1.1.0
 pyarrow>=14.0.2
-geopandas>=0.14.3
-GDAL==3.4.1
+fiona>=1.9.4  # Required for shapefile handling
+
 # Machine learning and deep learning
 scikit-learn>=1.3.0
 tensorflow>=2.13.0
@@ -23,3 +25,7 @@ joblib>=1.3.2
 
 # Image processing
 Pillow>=10.0.0
+
+# Additional utilities
+pydeck>=0.8.1  # For 3D mapping
+tqdm>=4.66.1   # For progress bars
