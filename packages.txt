@@ -1,5 +1,6 @@
 gdal-bin
 libgdal-dev
+python3-gdal
 libproj-dev
 pkg-config
 python3-dev
