@@ -25,8 +25,18 @@ from geocube.api.core import make_geocube
 from matplotlib.colors import ListedColormap
 import zipfile
 import glob
-from osgeo import ogr
-from osgeo import gdal
+try:
+    from osgeo import ogr, gdal
+except ModuleNotFoundError:
+    import streamlit as st
+    st.error(
+        "GDAL Python bindings (`osgeo`) are missing.\n\n"
+        "If you're on Streamlit Cloud, ensure `packages.txt` contains:\n"
+        "    gdal-bin\n    libgdal-dev\n    python3-gdal\n"
+        "and remove `gdal==3.2.2` from requirements.txt."
+    )
+    st.stop()
+
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
