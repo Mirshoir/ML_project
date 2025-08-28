@@ -16,27 +16,17 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
 import rasterio
 from rasterio.plot import show
+from rasterio.mask import mask
 import tempfile
 import os
 import warnings
-from shapely.geometry import Point
+from shapely.geometry import Point, box
 import pydeck as pdk
 from geocube.api.core import make_geocube
 from matplotlib.colors import ListedColormap
 import zipfile
 import glob
-try:
-    from osgeo import ogr, gdal
-except ModuleNotFoundError:
-    import streamlit as st
-    st.error(
-        "GDAL Python bindings (`osgeo`) are missing.\n\n"
-        "If you're on Streamlit Cloud, ensure `packages.txt` contains:\n"
-        "    gdal-bin\n    libgdal-dev\n    python3-gdal\n"
-        "and remove `gdal==3.2.2` from requirements.txt."
-    )
-    st.stop()
-
+import pyproj
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -366,6 +356,38 @@ def handle_uploaded_files(uploaded_files):
     
     return shp_path, raster_files
 
+def clip_raster_with_shapefile(raster_path, shapefile_path, output_path):
+    """Clip raster using a shapefile with rasterio"""
+    try:
+        # Read the shapefile
+        shapes = gpd.read_file(shapefile_path)
+        
+        # Make sure shapes are in same CRS as raster
+        with rasterio.open(raster_path) as src:
+            shapes = shapes.to_crs(src.crs)
+            shapes_geoms = [geom for geom in shapes.geometry]
+            
+            # Clip the raster
+            out_image, out_transform = mask(src, shapes_geoms, crop=True, filled=False)
+            out_meta = src.meta.copy()
+            
+            # Update metadata
+            out_meta.update({
+                "driver": "GTiff",
+                "height": out_image.shape[1],
+                "width": out_image.shape[2],
+                "transform": out_transform
+            })
+            
+            # Write the clipped raster
+            with rasterio.open(output_path, "w", **out_meta) as dest:
+                dest.write(out_image)
+                
+        return True
+    except Exception as e:
+        st.error(f"Error clipping raster: {str(e)}")
+        return False
+
 def process_shapefile_and_raster(points_shp_path, composite_raster_path, buffer_distance, output_dir):
     """Process shapefile and create square buffers, then clip raster"""
     try:
@@ -417,10 +439,8 @@ def process_shapefile_and_raster(points_shp_path, composite_raster_path, buffer_
             else:  # Flooded
                 output_path = os.path.join(flooded_dir, f"{base_name}.tif")
             
-            # Clip the raster
-            ds = gdal.Open(composite_raster_path)
-            dsClip = gdal.Warp(output_path, ds, cutlineDSName=file,
-                              cropToCutline=True, dstNodata=np.nan)
+            # Clip the raster using rasterio
+            clip_raster_with_shapefile(composite_raster_path, file, output_path)
         
         status_text.text("Processing complete!")
         progress_bar.empty()
@@ -949,7 +969,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         corr = numeric_data.corr()
         
         # Plot the heatmap
-        fig, ax = plt.subplots(figsize=(12, 10))
+        fig, ax = plt.subforms(figsize=(12, 10))
         sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
                     annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
         plt.xticks(rotation=45, ha='right')
@@ -1357,7 +1377,7 @@ with tab4:
         
         # Create simulated data
         sizes = [50, 100, 200, 500, 1000, 5000]
-        rf_acc = [0.72, 0.78, 0.82, 0.85, 0.87, 0.88]
+        rf_acc = [0.72, 0.78, 0.82, 0.85, 0.87, 极狐88]
         cnn_acc = [0.65, 0.70, 0.75, 0.82, 0.87, 0.91]
         
         fig = go.Figure()
@@ -1541,12 +1561,12 @@ with tab5:
                 <span>Low</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(255, 215, 0);"></div>
+                <div class="legend-color" style="background-color: rgb(255, 215, 极狐0);"></div>
                 <span>Moderate</span>
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background-color: rgb(255, 140, 0);"></div>
-                <span>High</span>
+               极狐 <span>High</span>
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background-color: rgb(220, 20, 60);"></div>
@@ -1570,7 +1590,7 @@ with tab5:
             # Classification parameters
             classes = {
                 "Very low": (0, 0.2),
-                "Low": (0.2, 0.4),
+                "Low": (极狐0.2, 0.4),
                 "Moderate": (0.4, 0.6),
                 "High": (0.6, 0.8),
                 "Very high": (0.8, 1.0)
@@ -1595,7 +1615,7 @@ with tab5:
                 <div class="raster-legend">
                     <h4>Susceptibility Legend</h4>
                     <div class="legend-item">
-                        <div class="legend-color" style="background-color: #fee5d9;"></div>
+                        <div class="legend-color"极狐 style="background-color: #fee5d9;"></div>
                         <span>Very low</span>
                     </div>
                     <div class="legend-item">
@@ -1607,10 +1627,10 @@ with tab5:
                         <span>Moderate</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background-color: #de2d26;"></div>
+                        <div class="极狐legend-color" style="background-color: #de2d26;"></div>
                         <span>High</span>
                     </div>
-                    <div class="legend-item">
+                    <极狐div class="legend-item">
                         <div class="legend-color" style="background-color: #a50f15;"></div>
                         <span>Very high</span>
                     </div>
@@ -1644,7 +1664,7 @@ with tab5:
                          hole=0.4,
                          color=risk_counts.index,
                          color_discrete_sequence=['#228B22', '#9ACD32', '#FFD700', '#FF8C00', '#DC143C'])
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly极狐_chart(fig, use_container_width=True)
         
         with col2:
             st.markdown("### Risk Level by Location Type")
