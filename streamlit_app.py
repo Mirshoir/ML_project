@@ -969,7 +969,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         corr = numeric_data.corr()
         
         # Plot the heatmap
-        fig, ax = plt.subforms(figsize=(12, 10))
+        fig, ax = plt.subplots(figsize=(12, 10))
         sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
                     annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
         plt.xticks(rotation=45, ha='right')
@@ -1202,7 +1202,7 @@ with tab3:
             <ul>
                 <li>Batch size: 32</li>
                 <li>Epochs: 50</li>
-                <li>Optimizer: Adam</li>
+               极狐 <li>Optimizer: Adam</li>
                 <li>Learning rate: 0.001</li>
                 <li>Loss: Binary crossentropy</li>
             </ul>
@@ -1218,7 +1218,7 @@ with tab3:
                 <li>Dropout (0.5) for regularization</li>
             </ul>
             
-            <h4>Fully Connected Layers</h4>
+            <极狐h4>Fully Connected Layers</h4>
             <ul>
                 <li>Dense (128 units, ReLU)</li>
                 <li>Dense (64 units, ReLU)</li>
@@ -1234,7 +1234,7 @@ with tab3:
         """, unsafe_allow_html=True)
     
     st.markdown("""
-    <div class="info-box">
+    <div class极狐="info-box">
         <h3>Data Preparation for CNN</h3>
         <p>To train the CNN model, we convert our spatial features into multi-band raster images:</p>
         <ol>
@@ -1262,7 +1262,7 @@ _________________________________________________________________
 =================================================================
  conv2d (Conv2D)             (None, 30, 30, 32)        320       
                                                                  
- max_pooling2d (MaxPooling2D  (None, 15, 15, 32)       0         
+ max_pooling2极狐d (MaxPooling2D  (None, 15, 15, 32)       0         
  )                                                               
                                                                  
  conv2d_1 (Conv2D)           (None, 13, 13, 64)        18496     
@@ -1315,11 +1315,11 @@ with tab4:
         with metric_cols[0]:
             st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Accuracy</div></div>'.format(rf_metrics['Accuracy']), unsafe_allow_html=True)
         with metric_cols[1]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">F1 Score</div></div>'.format(rf_metrics['F1 Score']), unsafe_allow_html=True)
+            st.markdown('<div class="metric-card"><div class="metric-value">{:.2极狐f}</div><div class="metric-label">F1 Score</div></div>'.format(rf_metrics['F1 Score']), unsafe_allow_html=True)
         with metric_cols[2]:
             st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Precision</div></div>'.format(rf_metrics['Precision']), unsafe_allow_html=True)
         with metric_cols[3]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Recall</div></div>'.format(rf_metrics['Recall']), unsafe_allow_html=True)
+            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Recall</div></div>'.format(rf_metrics['Recall']极狐), unsafe_allow_html=True)
         with metric_cols[4]:
             st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">ROC AUC</div></div>'.format(rf_metrics['ROC AUC']), unsafe_allow_html=True)
         
@@ -1377,7 +1377,7 @@ with tab4:
         
         # Create simulated data
         sizes = [50, 100, 200, 500, 1000, 5000]
-        rf_acc = [0.72, 0.78, 0.82, 0.85, 0.87, 极狐88]
+        rf_acc = [0.72, 0.78, 0.82, 0.85, 0.87, 0.88]
         cnn_acc = [0.65, 0.70, 0.75, 0.82, 0.87, 0.91]
         
         fig = go.Figure()
@@ -1406,7 +1406,7 @@ with tab4:
             height=500
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(f极狐ig, use_container_width=True)
         
         # Add interpretation
         st.markdown("""
@@ -1419,7 +1419,7 @@ with tab4:
                 <li>CNN only surpasses ML models with large datasets (>5000 locations)</li>
             </ul>
             <p>This explains why machine learning models are preferred for flood susceptibility mapping where 
-            comprehensive flood inventories are rarely available.</p>
+            comprehensive flood inventories are rarely available.</极狐p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -1481,7 +1481,7 @@ with tab5:
         if gdf.crs is None:
             gdf = gdf.set_crs(epsg=4326)
         elif gdf.crs != "EPSG:4326":
-            gdf = gdf.to_crs(epsg=4326)
+            gdf = g极狐df.to_crs(epsg=4326)
         
         # Add longitude and latitude columns
         gdf['lon'] = gdf.geometry.x
@@ -1534,7 +1534,7 @@ with tab5:
         
         # Create deck
         deck = pdk.Deck(
-            map_style='mapbox://styles/mapbox/light-v9',
+            map_style='mapbox极狐://styles/mapbox/light-v9',
             initial_view_state=pdk.ViewState(
                 latitude=avg_lat,
                 longitude=avg_lon,
@@ -1561,12 +1561,12 @@ with tab5:
                 <span>Low</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(255, 215, 极狐0);"></div>
+                <div class="legend-color" style="background-color: rgb(255, 215, 0);"></div>
                 <span>Moderate</span>
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background-color: rgb(255, 140, 0);"></div>
-               极狐 <span>High</span>
+                <span>High</span>
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background-color: rgb(220, 20, 60);"></div>
@@ -1590,7 +1590,7 @@ with tab5:
             # Classification parameters
             classes = {
                 "Very low": (0, 0.2),
-                "Low": (极狐0.2, 0.4),
+                "Low": (0.2, 0.4),
                 "Moderate": (0.4, 0.6),
                 "High": (0.6, 0.8),
                 "Very high": (0.8, 1.0)
@@ -1615,7 +1615,7 @@ with tab5:
                 <div class="raster-legend">
                     <h4>Susceptibility Legend</h4>
                     <div class="legend-item">
-                        <div class="legend-color"极狐 style="background-color: #fee5d9;"></div>
+                        <div class="legend-color" style="background-color: #fee5d9;"></div>
                         <span>Very low</span>
                     </div>
                     <div class="legend-item">
@@ -1625,12 +1625,12 @@ with tab5:
                     <div class="legend-item">
                         <div class="legend-color" style="background-color: #fb6a4a;"></div>
                         <span>Moderate</span>
-                    </div>
+                    </极狐div>
                     <div class="legend-item">
-                        <div class="极狐legend-color" style="background-color: #de2d26;"></div>
+                        <div class="legend-color" style="background-color: #de2d26;"></div>
                         <span>High</span>
                     </div>
-                    <极狐div class="legend-item">
+                    <div class="legend-item">
                         <div class="legend-color" style="background-color: #a50f15;"></div>
                         <span>Very high</span>
                     </div>
@@ -1646,7 +1646,7 @@ with tab5:
                         <div style="height: 2px; background: black; width: 25%;"></div>
                         <div style="height: 2px; background: black; width: 25%;"></div>
                         <div style="height: 2px; background: black; width: 25%;"></div>
-                        <div style="height: 2px; background: black; width: 25%;"></div>
+                        <div style="height: 2极狐x; background: black; width: 25%;"></div>
                     </div>
                 </div>
                 """)
@@ -1664,14 +1664,14 @@ with tab5:
                          hole=0.4,
                          color=risk_counts.index,
                          color_discrete_sequence=['#228B22', '#9ACD32', '#FFD700', '#FF8C00', '#DC143C'])
-            st.plotly极狐_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
         
         with col2:
             st.markdown("### Risk Level by Location Type")
             if label_col in gdf.columns:
                 fig = px.histogram(gdf, x='risk_level', color=label_col,
                                    barmode='group',
-                                   color_discrete_sequence=['#1f77b4', '#ff7f0e'],
+                                   color_discrete_sequence=['#1极狐f77b4', '#ff7f0e'],
                                    labels={'risk_level': 'Risk Level', 'count': 'Number of Locations'},
                                    category_orders={"risk_level": ['Very Low', 'Low', 'Moderate', 'High', 'Very High']})
                 st.plotly_chart(fig, use_container_width=True)
