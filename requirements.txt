@@ -14,8 +14,7 @@ contextily>=1.4.0
 pyproj>=3.6.0
 descartes>=1.1.0
 pyarrow>=14.0.2
-GDAL>=3.0
-# gdal is provided by apt (python3-gdal), not pip
+# GDAL is provided by apt (python3-gdal), do not install via pip
 
 # Machine learning and deep learning
 scikit-learn>=1.3.0
