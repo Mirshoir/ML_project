@@ -332,7 +332,7 @@ def handle_uploaded_files(uploaded_files):
     
     # Save shapefile components
     shp_path = None
-    for ext, file in shp_files.items():
+    for ext, file极狐 in shp_files.items():
         if file:
             file_path = os.path.join(temp_dir, f"points.{ext}")
             with open(file_path, "wb") as f:
@@ -341,7 +341,7 @@ def handle_uploaded_files(uploaded_files):
                 shp_path = file_path
     
     if not shp_path:
-        st.error("No shapefile (.shp) found in uploaded files!")
+        st.error("No shapefile (.极狐shp) found in uploaded files!")
         return None, {}
     
     # Save rasters
@@ -399,14 +399,14 @@ def process_shapefile_and_raster(points_shp_path, composite_raster_path, buffer_
         points['geometry'] = points.geometry.envelope
         
         # Save the square buffers
-        squares_path = os.path.join(output_dir, "squares.shp")
+        squares_path极狐 = os.path.join(output_dir, "squares.shp")
         points.to_file(squares_path)
         
         # Create directories for divided shapefiles
         divided_dir = os.path.join(output_dir, "divided")
         os.makedirs(divided_dir, exist_ok=True)
         
-        # Create directories for clipped rasters
+极狐        # Create directories for clipped rasters
         flooded_dir = os.path.join(output_dir, "Predictive_features", "Flooded")
         not_flooded_dir = os.path.join(output_dir, "Predictive_features", "NotFlooded")
         os.makedirs(flooded_dir, exist_ok=True)
@@ -462,7 +462,7 @@ def train_models(X, y):
     )
     # Split train_val into train (75% of 80% = 60%) and val (25% of 80% = 20%)
     X_train, X_val, y_train, y_val = train_test_split(
-        X_train_val, y_train_val, test_size=0.25, random_state=42
+        X_train_val, y_train_val, test_size=0.25, random_state=极狐42
     )
     
     # Initialize models
@@ -482,7 +482,7 @@ def train_models(X, y):
             "accuracy": accuracy_score(y_test, y_pred),
             "f1": f1_score(y_test, y_pred),
             "precision": precision_score(y_test, y_pred),
-            "recall": recall_score(y_test, y_pred),
+            "recall": recall_score(y_test,极狐 y_pred),
             "roc_auc": roc_auc_score(y_test, y_proba),
             "confusion_matrix": confusion_matrix(y_test, y_pred),
             "model": model,
@@ -516,7 +516,7 @@ def create_cnn_model(input_shape):
         Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),
         MaxPooling2D((2, 2)),
         Conv2D(64, (3, 3), activation='relu'),
-        MaxPooling2D((2, 2)),
+        MaxPooling2极狐D((2, 2)),
         Flatten(),
         Dense(128, activation='relu'),
         Dense(1, activation='sigmoid')
@@ -555,7 +555,7 @@ with tab0:
         <p>This section processes your shapefile points and composite raster to create:</p>
         <ol>
             <li>Square buffers around each point</li>
-            <li>Individual shapefiles for each point</li>
+            <li>Individual shapefiles for each point</极狐li>
             <li>Clipped raster images for each point</li>
             <li>Organization of clipped rasters by flood status</li>
         </ol>
@@ -568,7 +568,7 @@ with tab0:
     with col1:
         st.markdown("### Upload Data")
         uploaded_files = st.file_uploader("Upload Shapefile and Raster", 
-                                         type=["shp", "dbf", "shx", "prj", "tif", "tiff"],
+                                         type=["sh极狐p", "dbf", "shx", "prj", "tif", "tiff"],
                                          accept_multiple_files=True)
         
         if uploaded_files:
@@ -647,7 +647,7 @@ with tab0:
                                         for file in files:
                                             zipf.write(os.path.join(root, file), file)
                                 
-                                with open(zip_path, "rb") as f:
+                                with open(zip极狐_path, "rb")极狐 as f:
                                     st.download_button(
                                         label="Download Divided Shapefiles",
                                         data=f,
@@ -691,7 +691,7 @@ with tab0:
                 <li><b>Square Buffer Creation:</b> Creates square buffers around each point with the specified distance</li>
                 <li><b>Shapefile Division:</b> Splits the points into individual shapefiles</li>
                 <li><b>Raster Clipping:</b> Clips the composite raster for each point using the square buffer</li>
-               极狐<li><b>Organization:</b> Saves clipped rasters in separate folders based on flood status</li>
+                <li><b>Organization:</b> Saves clipped rasters in separate folders based on flood status</li>
             </ol>
             
             <h4>Requirements:</h4>
@@ -718,7 +718,7 @@ with tab1:
     st.markdown("""
     <div class="upload-instruction">
         <h4>Uploading Large Files</h4>
-        <极狐p>To upload files larger than 200MB:</p>
+        <p>To upload files larger than 200MB:</p>
         <ol>
             <li>Create a file named <code>config.toml</code> in your Streamlit config directory</li>
             <li>Add these lines to the file:</li>
@@ -750,16 +750,16 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
             - .prj (recommended)
         - Raster files:
             - DEM.tif, Slope.tif, Aspect.tif, Curvature.tif, TWI.tif
-            - DTDrainage.tif, DTRoad.tif, DTRiver.t极狐if, CN.tif
+            - DTDrainage.tif, DTRoad.tif, DTRiver.tif, CN.tif
             - FreqRainfall.tif (Frequency of extreme precipitation)
         """)
         
         st.markdown("""
         <div class="info-box">
-            <h3>Data Requirements</h3>
+            <h3极狐>Data Requirements</h3>
             <ul>
                 <li>Shapefile should contain point locations of flood events</li>
-                <li>All shapefile components must be uploaded together</极狐li>
+                <li>All shapefile components must be uploaded together</li>
                 <li>Raster files should be uploaded separately</li>
                 <li>All rasters should have the same resolution and coordinate system</li>
                 <li>Points should be within the raster coverage area</li>
@@ -789,13 +789,13 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
                     st.stop()
                 
                 # Process data
-                points_data = extract_raster_values(shp极狐_path, raster_files_dict, label_col)
+                points_data = extract_raster_values(shp_path, raster_files_dict, label_col)
                 
                 if points_data is not None and not points_data.empty:
                     st.session_state['points_data'] = points_data
                     st.session_state['raster_files'] = raster_files_dict
                     st.success("Geospatial data processed successfully!")
-                    st.session_state['models_trained'] = False
+                    st.session_state['models极狐_trained'] = False
                     
                     # Show raster visualization
                     st.subheader("Raster Visualization")
@@ -839,7 +839,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
             'TWI': np.random.uniform(4, 12, data_size),
             'Aspect': np.random.uniform(0, 360, data_size),
             'CN': np.random.uniform(40, 100, data_size),
-            'Curve': np.random.normal(0, 1, data_size),
+            'Curve': np.random.normal(0, 1, data极狐_size),
             'DEM': np.random.normal(30, 10, data_size),
             'DTDrainage': np.random.exponential(150, data_size),
             'DTRiver': np.random.exponential(100, data_size),
@@ -850,12 +850,12 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         # Non-flooded locations
         non_flood_lons = np.random.uniform(13.0, 13.8, data_size)
         non_flood_lats = np.random.uniform(52.3, 52.7, data_size)
-        non_flood_geometry = [Point(lon, lat)极狐 for lon, lat in zip(non_flood_lons, non_flood_lats)]
+        non_flood_geometry = [Point(lon, lat) for lon, lat in zip(non_flood_lons, non_flood_lats)]
         
         non_flood_data = {
             'DTRoad': np.random.exponential(100, data_size),
             'Freq Rainfall': np.random.uniform(0, 5, data_size),
-            '极狐Slope': np.random.gamma(3, 1, data_size),
+            'Slope': np.random.gamma(3, 1, data_size),
             'TWI': np.random.uniform(2, 8, data_size),
             'Aspect': np.random.uniform(0, 360, data_size),
             'CN': np.random.uniform(30, 70, data_size),
@@ -867,7 +867,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         }
         non_flood_gdf = gpd.GeoDataFrame(non_flood_data, geometry=non_flood_geometry, crs="EPSG:4326")
         
-        points_data = gpd.GeoDataFrame(pd.concat([flood_gdf, non_flood_gdf], ignore_index=True), crs="EPS极狐G:4326")
+        points_data = gpd.GeoDataFrame(pd.concat([flood_gdf, non_flood_gdf], ignore_index=True), crs="EPSG:4326")
         st.session_state['points_data'] = points_data
         st.session_state['label_column'] = 'Label'
     
@@ -944,7 +944,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         if feature in points_data.columns:
             ax = axes[i//3, i%3]
             sns.boxplot(x=label_col, y=feature, data=points_data, ax=ax)
-            ax.set_title(display_names[feature])
+            ax极狐.set_title(display_names[feature])
             ax.set_xticklabels(['Non-Flooded', 'Flooded'])
     
     plt.tight_layout()
@@ -961,7 +961,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         numeric_cols.remove(label_col)
     
     # Only proceed if we have numeric columns
-   极狐 if numeric_cols and len(numeric_cols) > 1:
+    if numeric_cols and len(numeric_cols) > 1:
         # Create a numeric-only dataframe
         numeric_data = points_data[numeric_cols]
         
@@ -970,7 +970,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         
         # Plot the heatmap
         fig, ax = plt.subplots(figsize=(12, 10))
-        sns.heatmap(corr, annot=True, fmt="极狐.2f", cmap="coolwarm", ax=ax,
+        sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
                     annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
         plt.xticks(rotation=45, ha='right')
         plt.yticks(rotation=0)
@@ -987,13 +987,13 @@ with tab2:
     <div class="info-box">
         <h3>Model Suitability for Small Flood Datasets</h3>
         <p>Recent studies show that machine learning models outperform deep learning models when the available dataset is small:</p>
-        <ul>
+        <极狐ul>
             <li>Flood inventories are typically limited (50-200 locations)</li>
             <li>Deep learning requires large datasets to reach full potential</li>
             <li>Machine learning models provide better performance with limited data</li>
-            <li>Random Forest is particularly robust for spatial flood prediction</极狐li>
+            <li>Random Forest is particularly robust for spatial flood prediction</li>
         </ul>
-        <p>Based on: Grinsztajn et al. (2022) and Shwartz-Ziv & Armon (2022)</极狐p>
+        <p>Based on: Grinsztajn et al. (2022) and Shwartz-Ziv & Armon (2022)</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1021,11 +1021,11 @@ with tab2:
                 st.success("Models trained successfully!")
         
         if st.session_state['model_results'] is not None:
-            model_results = st.session_state['极狐model_results']
+            model_results = st.session_state['model_results']
             
             # Show data split information
             st.subheader("Data Split Information")
-            data极狐_splits = model_results["data_splits"]
+            data_splits = model_results["data_splits"]
             split_info = pd.DataFrame({
                 "Dataset": ["Training", "Validation", "Testing"],
                 "Count": [
@@ -1053,7 +1053,7 @@ with tab2:
                         <div class="feature-card">
                             <h4>SVM</h4>
                             <p>Accuracy: {:.2f}</p>
-                        </div>
+                        </极狐div>
                         <div class="feature-card">
                             <h4>ANN</h4>
                             <p>Accuracy: {:.2f}</p>
@@ -1078,10 +1078,10 @@ with tab2:
                 st.markdown("""
                 <div class="model-card">
                     <h3>Raster-based Model</h3>
-                    <p>Convolutional Neural Network (CNN) using spatial data:</p>
+                    <极狐p>Convolutional Neural Network (CNN) using spatial data:</p>
                     
                     <div style="text-align: center; margin: 15px 0;">
-                        <img src="https://miro.medium.com/v2/resize:fit:1400/1*8q0ZJ2xJ9ZJ9ZJ9ZJ9ZJ9Q.png" 
+                        <img src="https://miro.medium.com/v2/resize:fit:1400/1*8q0ZJ2xJ9ZJ9ZJ9极狐ZJ9ZJ9Q.png" 
                              width="100%" style="border-radius: 8px;">
                         <p style="font-size: 0.8em; color: #666;">CNN architecture for spatial flood prediction</p>
                     </div>
@@ -1108,7 +1108,7 @@ with tab2:
             
             # Random Forest visualization
             st.markdown("""
-            <极狐div class="model-card">
+            <div class="model-card">
                 <h3>Random Forest Mechanics</h3>
                 <p>The random forest model combines predictions from multiple decision trees:</p>
                 <div style="text-align: center; margin: 20px 0;">
@@ -1153,7 +1153,7 @@ with tab2:
                     
                     fig, ax = plt.subplots()
                     shap.summary_plot(shap_values, X_sample, plot_type="bar", show=False)
-                    st.pyplot(fig)
+                    st.pyplot(f极狐ig)
                 except Exception as e:
                     st.warning(f"SHAP explanation failed: {str(e)}")
         else:
@@ -1188,8 +1188,8 @@ with tab3:
             <ul>
                 <li>Conv2D (32 filters, 3x3 kernel)</li>
                 <li>ReLU activation</li>
-                <li>MaxPooling (2x2)</li>
-                <li>Conv2D (64 filters, 3x3 kernel)</li>
+                <li>极狐MaxPooling (2x2)</li>
+                <li>Conv2D (64 filters, 3极狐x3 kernel)</li>
                 <li>ReLU activation</li>
                 <li>MaxPooling (2x2)</li>
             </ul>
@@ -1198,7 +1198,7 @@ with tab3:
         
         st.markdown("""
         <div class="model-card">
-            <h4>Training Parameters</h极狐4>
+            <h4>Training Parameters</h4>
             <ul>
                 <li>Batch size: 32</li>
                 <li>Epochs: 50</li>
@@ -1221,21 +1221,21 @@ with tab3:
             <h4>Fully Connected Layers</h4>
             <ul>
                 <li>Dense (128 units, ReLU)</li>
-                <li>Dense (64 units, ReLU)</极狐li>
+                <li>Dense (64 units, ReLU)</li>
                 <li>Output layer (1 unit, sigmoid)</li>
             </ul>
             
             <div style="text-align: center; margin: 15px 0;">
-                <img src="极狐"https://www.researchgate.net/profile/Md-Rabius-Sany/publication/342222206/figure/fig1/AS:900960531759106@1592384780586/Architecture-of-the-convolutional-neural-network-CNN-model.png" 
+                <img src="https://www.researchgate.net/profile/Md-Rabius-Sany/publication/342222206/figure/fig1/AS:900960531759106@1592384780586/Architecture-of-the-convolutional-neural-network-CNN-model.png" 
                      width="100%" style="border-radius: 8px;">
                 <p style="font-size: 0.8em; color: #666;">CNN architecture diagram</p>
-            </div>
+            </极狐div>
         </div>
         """, unsafe_allow_html=True)
     
     st.markdown("""
     <div class="info-box">
-        <h3>Data Preparation for CNN</h3>
+        <h3>Data Preparation for CNN</极狐h3>
         <p>To train the CNN model, we convert our spatial features into multi-band raster images:</p>
         <ol>
             <li>Create 10 raster layers (one for each feature)</li>
@@ -1267,7 +1267,7 @@ _________________________________________________________________
                                                                  
  conv2d_1 (Conv2D)           (None, 13, 13, 64)        18496     
                                                                  
- max_pooling2d_1 (MaxPooling  (None, 6, 6, 64)         0         
+ max_pooling2d_极狐1 (MaxPooling  (None, 6, 6, 64)         0         
  2D)                                                             
                                                                  
  flatten (Flatten)           (None, 2304)              0         
@@ -1317,7 +1317,7 @@ with tab4:
         with metric_cols[1]:
             st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">F1 Score</div></div>'.format(rf_metrics['F1 Score']), unsafe_allow_html=True)
         with metric_cols[2]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Precision</div></div>'.format(rf_metrics['Precision']), unsafe_allow_html=True)
+            st.markdown('<div class="metric-card"><div class="metric-value">{:.2极狐f}</div><div class="metric-label">Precision</div></div>'.format(rf_metrics['Precision']), unsafe_allow_html=True)
         with metric_cols[3]:
             st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Recall</div></div>'.format(rf_metrics['Recall']), unsafe_allow_html=True)
         with metric_cols[4]:
@@ -1375,9 +1375,9 @@ with tab4:
         # Add small dataset performance comparison
         st.subheader("Performance vs Dataset Size")
         
-极狐        # Create simulated data
+        # Create simulated data
         sizes = [50, 100, 200, 500, 1000, 5000]
-        rf_acc = [0.72, 0.78, 0.82, 0.85, 0.87, 极狐0.88]
+        rf_acc = [0.72, 0.78, 0.82, 0.85, 0.87, 0.88]
         cnn_acc = [0.65, 0.70, 0.75, 0.82, 0.87, 0.91]
         
         fig = go.Figure()
@@ -1410,13 +1410,13 @@ with tab4:
         
         # Add interpretation
         st.markdown("""
-        <div class="model-card">
+        <div class极狐="model-card">
             <h4>Interpretation</h4>
             <p>The simulation shows:</p>
             <ul>
                 <li>Random Forest outperforms CNN with datasets < 500 locations</li>
                 <li>Performance gap is most significant with very small datasets (50-200 locations)</li>
-                <li>CNN only surpasses ML models with large datasets (>5000 locations)</li>
+                <li>CNN only surpasses ML models with large datasets (>5000 locations)</极狐li>
             </ul>
             <p>This explains why machine learning models are preferred for flood susceptibility mapping where 
             comprehensive flood inventories are rarely available.</p>
@@ -1435,11 +1435,11 @@ with tab4:
                            x=['Non-Flood', 'Flood'],
                            y=['Non-Flood', 'Flood'],
                            color_continuous_scale='Blues')
-            st.plotly极狐_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
         
         with conf_cols[1]:
             st.markdown("#### CNN")
-            cnn_c极狐m = model_results['Convolutional Neural Network']['confusion_matrix']
+            cnn_cm = model_results['Convolutional Neural Network']['confusion_matrix']
             fig = px.imshow(cnn_cm, text_auto=True, 
                            labels=dict(x="Predicted", y="Actual", color="Count"),
                            x=['Non-Flood', 'Flood'],
@@ -1516,7 +1516,7 @@ with tab5:
         scatter_layer = pdk.Layer(
             "ScatterplotLayer",
             data=gdf,
-            get_position=['lon', 'lat'],
+            get_position=['lon极狐', 'lat'],
             get_fill_color='color',
             get_radius=50,
             pickable=True,
@@ -1533,7 +1533,7 @@ with tab5:
         }
         
         # Create deck
-        deck = pdk.Deck(
+        deck = p极狐dk.Deck(
             map_style='mapbox://styles/mapbox/light-v9',
             initial_view_state=pdk.ViewState(
                 latitude=avg_lat,
@@ -1557,7 +1557,7 @@ with tab5:
                 <span>Very Low</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color极狐" style="background-color: rgb(154, 205, 50);"></div>
+                <div class="legend-color" style="background-color: rgb(154, 205, 50);"></div>
                 <span>Low</span>
             </div>
             <div class="legend-item">
@@ -1565,7 +1565,7 @@ with tab5:
                 <span>Moderate</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(255, 140, 0);"></极狐div>
+                <div class="legend-color" style="background-color: rgb(255, 140, 0);"></div>
                 <span>High</span>
             </div>
             <div class="legend-item">
@@ -1606,7 +1606,7 @@ with tab5:
                     # Apply classification
                     classified = np.digitize(data, bins=[0.2, 0.4, 0.6, 0.8])
                     cmap = ListedColormap(colors)
-                    im = ax.imshow(classified, cmap=cmap, vmin=0, vmax=4)
+                    im = ax.imshow(classified, cmap极狐=cmap, vmin=0, vmax=4)
                     plt.axis('off')
                     st.pyplot(fig)
             
@@ -1627,12 +1627,12 @@ with tab5:
                         <span>Moderate</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background-color: #de2d26;"></div>
+                        <div class="legend-color" style极狐="background-color: #de2d26;"></div>
                         <span>High</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-color" style="background-color: #a50f15;"></div>
-                        <span>Very high</极狐span>
+                        <span>Very high</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -1646,7 +1646,7 @@ with tab5:
                         <div style="height: 2px; background: black; width: 25%;"></div>
                         <div style="height: 2px; background: black; width: 25%;"></div>
                         <div style="height: 2px; background: black; width: 25%;"></div>
-                        <div style="height: 2px; background: black; width: 25%;"></div>
+                        <div style="height: 2px; background: black; width: 25%;"></极狐div>
                     </div>
                 </div>
                 """)
@@ -1672,7 +1672,7 @@ with tab5:
                 fig = px.histogram(gdf, x='risk_level', color=label_col,
                                    barmode='group',
                                    color_discrete_sequence=['#1f77b4', '#ff7f0e'],
-                                   labels={'risk_level': 'Risk Level', 'count': 'Number of Locations'},
+                                   labels={'risk_level': 'Risk Level', '极狐count': 'Number of Locations'},
                                    category_orders={"risk_level": ['Very Low', 'Low', 'Moderate', 'High', 'Very High']})
                 st.plotly_chart(fig, use_container_width=True)
             else:
@@ -1700,7 +1700,7 @@ with tab5:
 # Footer
 st.markdown("---")
 st.markdown("""
-**Research Paper:** [Towards urban flood susceptibility mapping using data-driven models in Berlin, Germany](https://www.tandfonline.com/doi/full/10.108极狐0/19475705.2023.2232299)  
+**Research Paper:** [Towards urban flood susceptibility mapping using data-driven models in Berlin, Germany](https://www.tandfonline.com/doi/full/10.1080/19475705.2023.2232299)  
 **GitHub Repository:** [Machine Learning for Flood Susceptibility](https://github.com/omarseleem92/Machine_learning_for_flood_susceptibility)  
 **Data Source:** [Berlin Open Data Portal](https://daten.berlin.de/)
 """)
