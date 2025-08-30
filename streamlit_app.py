@@ -232,9 +232,9 @@ st.markdown("""
 
 # Create tabs
 tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🛠️ Data Processing", 
-    "📊 Data & Features", 
-    "🤖 Model Comparison", 
+    "🛠️ Data Processing",
+    "📊 Data & Features",
+    "🤖 Model Comparison",
     "🌊 CNN Architecture",
     "📈 Performance Results",
     "🗺️ Susceptibility Map"
@@ -254,7 +254,8 @@ if 'label_column' not in st.session_state:
 if 'raster_files' not in st.session_state:
     st.session_state['raster_files'] = {}
 if 'model_features' not in st.session_state:
-    st.session_state['model_features'] = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM', 'DTDrainage', 'DTRiver']
+    st.session_state['model_features'] = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM',
+                                          'DTDrainage', 'DTRiver']
 if 'raster_path' not in st.session_state:
     st.session_state['raster_path'] = None
 if 'processing_complete' not in st.session_state:
@@ -262,36 +263,38 @@ if 'processing_complete' not in st.session_state:
 if 'composite_raster_path' not in st.session_state:
     st.session_state['composite_raster_path'] = None
 
+
 # Data Processing Functions
 def extract_raster_values(shapefile, raster_files, label_col):
     """Extract raster values at point locations"""
     try:
         # Read shapefile
         points = gpd.read_file(shapefile)
-        
+
         # Check if label column exists
         if label_col not in points.columns:
             st.error(f"Label column '{label_col}' not found in shapefile!")
             return None
-        
+
         # Initialize columns based on new feature names
-        raster_names = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM', 'DTDrainage', 'DTRiver']
-        
+        raster_names = ['DTRoad', 'Freq Rainfall', 'Slope', 'TWI', 'Aspect', 'CN', 'Curve', 'DEM', 'DTDrainage',
+                        'DTRiver']
+
         for name in raster_names:
             points[name] = 0.0
-        
+
         # Open rasters and extract values
         for name, raster_path in raster_files.items():
             with rasterio.open(raster_path) as src:
                 arr = src.read(1)
                 transform = src.transform
-                
+
                 for index, row in points.iterrows():
                     try:
                         lon = row.geometry.x
                         lat = row.geometry.y
                         row_idx, col_idx = src.index(lon, lat)
-                        
+
                         # Ensure indices are within bounds
                         if 0 <= row_idx < arr.shape[0] and 0 <= col_idx < arr.shape[1]:
                             points.at[index, name] = arr[row_idx, col_idx]
@@ -299,7 +302,7 @@ def extract_raster_values(shapefile, raster_files, label_col):
                             points.at[index, name] = np.nan
                     except Exception as e:
                         points.at[index, name] = np.nan
-        
+
         # Drop rows with missing values
         points = points.dropna(subset=raster_names)
         return points
@@ -307,10 +310,11 @@ def extract_raster_values(shapefile, raster_files, label_col):
         st.error(f"Error in raster extraction: {str(e)}")
         return None
 
+
 def handle_uploaded_files(uploaded_files):
     """Process uploaded files and return raster paths"""
     temp_dir = tempfile.mkdtemp()
-    
+
     # Save shapefile components
     shp_files = {
         'shp': None,
@@ -318,7 +322,7 @@ def handle_uploaded_files(uploaded_files):
         'shx': None,
         'prj': None
     }
-    
+
     # Save all uploaded files
     for file in uploaded_files:
         if file.name.lower().endswith('.shp'):
@@ -329,21 +333,21 @@ def handle_uploaded_files(uploaded_files):
             shp_files['shx'] = file
         elif file.name.lower().endswith('.prj'):
             shp_files['prj'] = file
-    
+
     # Save shapefile components
     shp_path = None
-    for ext, file极狐 in shp_files.items():
-        if file:
+    for ext, file_obj in shp_files.items():
+        if file_obj:
             file_path = os.path.join(temp_dir, f"points.{ext}")
             with open(file_path, "wb") as f:
-                f.write(file.getbuffer())
+                f.write(file_obj.getbuffer())
             if ext == 'shp':
                 shp_path = file_path
-    
+
     if not shp_path:
-        st.error("No shapefile (.极狐shp) found in uploaded files!")
+        st.error("No shapefile (.shp) found in uploaded files!")
         return None, {}
-    
+
     # Save rasters
     raster_files = {}
     for file in uploaded_files:
@@ -353,24 +357,25 @@ def handle_uploaded_files(uploaded_files):
                 f.write(file.getbuffer())
             raster_name = os.path.splitext(file.name)[0]
             raster_files[raster_name] = raster_path
-    
+
     return shp_path, raster_files
+
 
 def clip_raster_with_shapefile(raster_path, shapefile_path, output_path):
     """Clip raster using a shapefile with rasterio"""
     try:
         # Read the shapefile
         shapes = gpd.read_file(shapefile_path)
-        
+
         # Make sure shapes are in same CRS as raster
         with rasterio.open(raster_path) as src:
             shapes = shapes.to_crs(src.crs)
             shapes_geoms = [geom for geom in shapes.geometry]
-            
+
             # Clip the raster
             out_image, out_transform = mask(src, shapes_geoms, crop=True, filled=False)
             out_meta = src.meta.copy()
-            
+
             # Update metadata
             out_meta.update({
                 "driver": "GTiff",
@@ -378,83 +383,85 @@ def clip_raster_with_shapefile(raster_path, shapefile_path, output_path):
                 "width": out_image.shape[2],
                 "transform": out_transform
             })
-            
+
             # Write the clipped raster
             with rasterio.open(output_path, "w", **out_meta) as dest:
                 dest.write(out_image)
-                
+
         return True
     except Exception as e:
         st.error(f"Error clipping raster: {str(e)}")
         return False
+
 
 def process_shapefile_and_raster(points_shp_path, composite_raster_path, buffer_distance, output_dir):
     """Process shapefile and create square buffers, then clip raster"""
     try:
         # Read the points shapefile
         points = gpd.read_file(points_shp_path)
-        
+
         # Create square buffers
         points['geometry'] = points.buffer(buffer_distance)
         points['geometry'] = points.geometry.envelope
-        
+
         # Save the square buffers
-        squares_path极狐 = os.path.join(output_dir, "squares.shp")
+        squares_path = os.path.join(output_dir, "squares.shp")
         points.to_file(squares_path)
-        
+
         # Create directories for divided shapefiles
         divided_dir = os.path.join(output_dir, "divided")
         os.makedirs(divided_dir, exist_ok=True)
-        
-极狐        # Create directories for clipped rasters
+
+        # Create directories for clipped rasters
         flooded_dir = os.path.join(output_dir, "Predictive_features", "Flooded")
         not_flooded_dir = os.path.join(output_dir, "Predictive_features", "NotFlooded")
         os.makedirs(flooded_dir, exist_ok=True)
         os.makedirs(not_flooded_dir, exist_ok=True)
-        
+
         # Split into individual shapefiles
         for index, feature in points.iterrows():
             feature_gdf = points.iloc[[index]]
             feature_gdf.to_file(os.path.join(divided_dir, f"feature_{index}.shp"))
-        
+
         # Clip raster for each feature
         shp_files = glob.glob(os.path.join(divided_dir, '*.shp'))
-        
+
         progress_bar = st.progress(0)
         status_text = st.empty()
-        
+
         for i, file in enumerate(shp_files):
-            status_text.text(f"Processing {i+1}/{len(shp_files)}: {os.path.basename(file)}")
-            progress_bar.progress((i+1)/len(shp_files))
-            
+            status_text.text(f"Processing {i + 1}/{len(shp_files)}: {os.path.basename(file)}")
+            progress_bar.progress((i + 1) / len(shp_files))
+
             # Read the shapefile to check label
             shp_ds = gpd.read_file(file)
-            
+
             # Get the base name without extension
             base_name = os.path.splitext(os.path.basename(file))[0]
-            
+
             # Clip based on label
             if shp_ds['Label'][0] == 0:  # Not flooded
                 output_path = os.path.join(not_flooded_dir, f"{base_name}.tif")
             else:  # Flooded
                 output_path = os.path.join(flooded_dir, f"{base_name}.tif")
-            
+
             # Clip the raster using rasterio
             clip_raster_with_shapefile(composite_raster_path, file, output_path)
-        
+
         status_text.text("Processing complete!")
         progress_bar.empty()
-        
+
         return True, squares_path, divided_dir, flooded_dir, not_flooded_dir
-        
+
     except Exception as e:
         st.error(f"Error in processing: {str(e)}")
         return False, None, None, None, None
 
+
 def train_models(X, y):
     """Train and evaluate machine learning models with 60-20-20 split"""
     results = {}
-    
+
     # Split data: 60% train, 20% validation, 20% test
     # First split: 80% (train+val) and 20% test
     X_train_val, X_test, y_train_val, y_test = train_test_split(
@@ -462,33 +469,33 @@ def train_models(X, y):
     )
     # Split train_val into train (75% of 80% = 60%) and val (25% of 80% = 20%)
     X_train, X_val, y_train, y_val = train_test_split(
-        X_train_val, y_train_val, test_size=0.25, random_state=极狐42
+        X_train_val, y_train_val, test_size=0.25, random_state=42
     )
-    
+
     # Initialize models
     models = {
         "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
         "Support Vector Machine": SVC(probability=True, random_state=42),
         "Artificial Neural Network": MLPClassifier(hidden_layer_sizes=(50,), max_iter=500, random_state=42)
     }
-    
+
     # Train and evaluate models
     for name, model in models.items():
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
         y_proba = model.predict_proba(X_test)[:, 1]
-        
+
         results[name] = {
             "accuracy": accuracy_score(y_test, y_pred),
             "f1": f1_score(y_test, y_pred),
             "precision": precision_score(y_test, y_pred),
-            "recall": recall_score(y_test,极狐 y_pred),
+            "recall": recall_score(y_test, y_pred),
             "roc_auc": roc_auc_score(y_test, y_proba),
             "confusion_matrix": confusion_matrix(y_test, y_pred),
             "model": model,
             "feature_importances": model.feature_importances_ if hasattr(model, 'feature_importances_') else None
         }
-    
+
     # Simulate CNN results with lower accuracy for small dataset
     results["Convolutional Neural Network"] = {
         "accuracy": 0.82,  # Lower than ML models for small dataset
@@ -500,15 +507,16 @@ def train_models(X, y):
         "model": None,
         "feature_importances": None
     }
-    
+
     # Store split data in results for visualization
     results["data_splits"] = {
         "X_train": X_train, "y_train": y_train,
         "X_val": X_val, "y_val": y_val,
         "X_test": X_test, "y_test": y_test
     }
-    
+
     return results
+
 
 def create_cnn_model(input_shape):
     """Create a CNN model architecture"""
@@ -516,7 +524,7 @@ def create_cnn_model(input_shape):
         Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),
         MaxPooling2D((2, 2)),
         Conv2D(64, (3, 3), activation='relu'),
-        MaxPooling2极狐D((2, 2)),
+        MaxPooling2D((2, 2)),
         Flatten(),
         Dense(128, activation='relu'),
         Dense(1, activation='sigmoid')
@@ -524,12 +532,13 @@ def create_cnn_model(input_shape):
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
+
 def generate_susceptibility_raster(points_data, model_features, flood_prob_col, output_path):
     """Generate flood susceptibility raster from model predictions"""
     try:
         # Create a copy of points data with predictions
         gdf = points_data.copy()
-        
+
         # Create a grid from point predictions
         out_grid = make_geocube(
             vector_data=gdf,
@@ -537,7 +546,7 @@ def generate_susceptibility_raster(points_data, model_features, flood_prob_col, 
             resolution=(-10, 10),  # 10m resolution
             fill=0  # Fill NA with 0
         )
-        
+
         # Save as GeoTIFF
         out_grid[flood_prob_col].rio.to_raster(output_path)
         return True
@@ -545,60 +554,62 @@ def generate_susceptibility_raster(points_data, model_features, flood_prob_col, 
         st.error(f"Raster generation failed: {str(e)}")
         return False
 
+
 # Data Processing Tab
 with tab0:
-    st.markdown('<div class="subheader">Data Processing: Shapefile and Raster Preparation</div>', unsafe_allow_html=True)
-    
+    st.markdown('<div class="subheader">Data Processing: Shapefile and Raster Preparation</div>',
+                unsafe_allow_html=True)
+
     st.markdown("""
     <div class="info-box">
         <h3>Data Processing Pipeline</h3>
         <p>This section processes your shapefile points and composite raster to create:</p>
         <ol>
             <li>Square buffers around each point</li>
-            <li>Individual shapefiles for each point</极狐li>
+            <li>Individual shapefiles for each point</li>
             <li>Clipped raster images for each point</li>
             <li>Organization of clipped rasters by flood status</li>
         </ol>
     </div>
     """, unsafe_allow_html=True)
-    
+
     # File upload section
     col1, col2 = st.columns([1, 1])
-    
+
     with col1:
         st.markdown("### Upload Data")
-        uploaded_files = st.file_uploader("Upload Shapefile and Raster", 
-                                         type=["sh极狐p", "dbf", "shx", "prj", "tif", "tiff"],
-                                         accept_multiple_files=True)
-        
+        uploaded_files = st.file_uploader("Upload Shapefile and Raster",
+                                          type=["shp", "dbf", "shx", "prj", "tif", "tiff"],
+                                          accept_multiple_files=True)
+
         if uploaded_files:
             # Find shapefile and raster
             shp_file = None
             raster_file = None
-            
+
             for file in uploaded_files:
                 if file.name.lower().endswith('.shp'):
                     shp_file = file
                 elif file.name.lower().endswith('.tif') or file.name.lower().endswith('.tiff'):
                     raster_file = file
-            
+
             if shp_file and raster_file:
                 st.success("Shapefile and raster found!")
-                
+
                 # Buffer distance input
-                buffer_dist = st.number_input("Buffer Distance (units)", min_value=1, value=115, 
-                                            help="Distance for creating square buffers around points")
-                
+                buffer_dist = st.number_input("Buffer Distance (units)", min_value=1, value=115,
+                                              help="Distance for creating square buffers around points")
+
                 # Process button
                 if st.button("Process Data"):
                     with st.spinner("Processing data..."):
                         # Create temporary directory for output
                         output_dir = tempfile.mkdtemp()
-                        
+
                         # Save uploaded files
                         points_path = os.path.join(output_dir, "points.shp")
                         raster_path = os.path.join(output_dir, "composite_raster.tif")
-                        
+
                         # Save shapefile components
                         for file in uploaded_files:
                             if file.name.lower().endswith(('.shp', '.dbf', '.shx', '.prj')):
@@ -606,26 +617,26 @@ with tab0:
                                 save_path = os.path.join(output_dir, f"points{ext}")
                                 with open(save_path, "wb") as f:
                                     f.write(file.getbuffer())
-                        
+
                         # Save raster
                         with open(raster_path, "wb") as f:
                             f.write(raster_file.getbuffer())
-                        
+
                         # Process the data
                         success, squares_path, divided_dir, flooded_dir, not_flooded_dir = process_shapefile_and_raster(
                             points_path, raster_path, buffer_dist, output_dir
                         )
-                        
+
                         if success:
                             st.session_state['processing_complete'] = True
                             st.session_state['composite_raster_path'] = raster_path
                             st.success("Data processing completed successfully!")
-                            
+
                             # Show results
                             st.subheader("Processing Results")
-                            
+
                             col1, col2, col3 = st.columns(3)
-                            
+
                             with col1:
                                 st.metric("Square Buffers Created", "1 file")
                                 if os.path.exists(squares_path):
@@ -636,7 +647,7 @@ with tab0:
                                             file_name="squares.zip",
                                             mime="application/zip"
                                         )
-                            
+
                             with col2:
                                 divided_files = glob.glob(os.path.join(divided_dir, "*.shp"))
                                 st.metric("Individual Shapefiles", f"{len(divided_files)} files")
@@ -646,20 +657,20 @@ with tab0:
                                     for root, dirs, files in os.walk(divided_dir):
                                         for file in files:
                                             zipf.write(os.path.join(root, file), file)
-                                
-                                with open(zip极狐_path, "rb")极狐 as f:
+
+                                with open(zip_path, "rb") as f:
                                     st.download_button(
                                         label="Download Divided Shapefiles",
                                         data=f,
                                         file_name="divided_shapefiles.zip",
                                         mime="application/zip"
                                     )
-                            
+
                             with col3:
                                 flooded_files = glob.glob(os.path.join(flooded_dir, "*.tif"))
                                 not_flooded_files = glob.glob(os.path.join(not_flooded_dir, "*.tif"))
                                 st.metric("Clipped Rasters", f"{len(flooded_files) + len(not_flooded_files)} files")
-                                
+
                                 # Create zip of clipped rasters
                                 raster_zip_path = os.path.join(output_dir, "clipped_rasters.zip")
                                 with zipfile.ZipFile(raster_zip_path, 'w') as zipf:
@@ -667,7 +678,7 @@ with tab0:
                                         for file in files:
                                             if file.endswith('.tif'):
                                                 zipf.write(os.path.join(root, file), file)
-                                
+
                                 with open(raster_zip_path, "rb") as f:
                                     st.download_button(
                                         label="Download Clipped Rasters",
@@ -675,13 +686,13 @@ with tab0:
                                         file_name="clipped_rasters.zip",
                                         mime="application/zip"
                                     )
-            
+
             else:
                 if not shp_file:
                     st.error("Please upload a shapefile (.shp)")
                 if not raster_file:
                     st.error("Please upload a composite raster (.tif)")
-    
+
     with col2:
         st.markdown("### Processing Details")
         st.markdown("""
@@ -693,7 +704,7 @@ with tab0:
                 <li><b>Raster Clipping:</b> Clips the composite raster for each point using the square buffer</li>
                 <li><b>Organization:</b> Saves clipped rasters in separate folders based on flood status</li>
             </ol>
-            
+
             <h4>Requirements:</h4>
             <ul>
                 <li>Shapefile must have a 'Label' column (0 for non-flooded, 1 for flooded)</li>
@@ -702,7 +713,7 @@ with tab0:
             </ul>
         </div>
         """, unsafe_allow_html=True)
-        
+
         # Visualization of the process
         st.markdown("### Processing Visualization")
         st.image("https://i.imgur.com/9GqQz7l.png", caption="Data Processing Pipeline", use_column_width=True)
@@ -710,10 +721,10 @@ with tab0:
 # Data Preparation Tab
 with tab1:
     st.markdown('<div class="subheader">Predictive Features for Flood Susceptibility</div>', unsafe_allow_html=True)
-    
+
     # File upload section
     st.markdown("### Upload Geospatial Data")
-    
+
     # Upload configuration instructions
     st.markdown("""
     <div class="upload-instruction">
@@ -730,16 +741,16 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         <p>This will increase the upload limit to 1000MB (1GB).</p>
     </div>
     """, unsafe_allow_html=True)
-    
+
     col1, col2 = st.columns([1, 1])
-    
+
     with col1:
-        uploaded_files = st.file_uploader("Upload Geospatial Files", 
-                                         type=["shp", "dbf", "shx", "prj", "tif", "tiff"],
-                                         accept_multiple_files=True)
-        
+        uploaded_files = st.file_uploader("Upload Geospatial Files",
+                                          type=["shp", "dbf", "shx", "prj", "tif", "tiff"],
+                                          accept_multiple_files=True)
+
         process_data = st.button("Process Geospatial Data")
-    
+
     with col2:
         st.info("""
         **Required Files:**
@@ -753,10 +764,10 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
             - DTDrainage.tif, DTRoad.tif, DTRiver.tif, CN.tif
             - FreqRainfall.tif (Frequency of extreme precipitation)
         """)
-        
+
         st.markdown("""
         <div class="info-box">
-            <h3极狐>Data Requirements</h3>
+            <h3>Data Requirements</h3>
             <ul>
                 <li>Shapefile should contain point locations of flood events</li>
                 <li>All shapefile components must be uploaded together</li>
@@ -766,41 +777,41 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
             </ul>
         </div>
         """, unsafe_allow_html=True)
-    
+
     # Process uploaded data
     if process_data and uploaded_files:
         with st.spinner("Processing geospatial data..."):
             try:
                 shp_path, raster_files_dict = handle_uploaded_files(uploaded_files)
-                
+
                 if not shp_path:
                     st.error("Failed to process shapefile components")
                     st.stop()
-                
+
                 # Let user select label column
                 points_preview = gpd.read_file(shp_path)
                 available_columns = [col for col in points_preview.columns if col != 'geometry']
-                
+
                 if available_columns:
                     label_col = st.selectbox("Select the flood indicator column", available_columns)
                     st.session_state['label_column'] = label_col
                 else:
                     st.error("No attribute columns found in shapefile!")
                     st.stop()
-                
+
                 # Process data
                 points_data = extract_raster_values(shp_path, raster_files_dict, label_col)
-                
+
                 if points_data is not None and not points_data.empty:
                     st.session_state['points_data'] = points_data
                     st.session_state['raster_files'] = raster_files_dict
                     st.success("Geospatial data processed successfully!")
-                    st.session_state['models极狐_trained'] = False
-                    
+                    st.session_state['models_trained'] = False
+
                     # Show raster visualization
                     st.subheader("Raster Visualization")
                     raster_cols = st.columns(3)
-                    
+
                     for idx, (name, path) in enumerate(raster_files_dict.items()):
                         if idx >= 9:  # Limit to 9 displays
                             break
@@ -813,25 +824,25 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
                                 st.pyplot(fig)
                 else:
                     st.error("Failed to process geospatial data. Please check your files.")
-                
+
             except Exception as e:
                 st.error(f"Error processing data: {str(e)}")
     elif process_data and not uploaded_files:
         st.warning("Please upload files before processing")
-    
+
     # If no uploaded data, use sample data
     if st.session_state['points_data'] is None:
         st.warning("Using sample data. Upload your own data for real analysis.")
-        
+
         # Generate sample data with mock geometry in Berlin
         np.random.seed(42)
         data_size = 1000
-        
+
         # Flooded locations
         flood_lons = np.random.uniform(13.0, 13.8, data_size)
         flood_lats = np.random.uniform(52.3, 52.7, data_size)
         flood_geometry = [Point(lon, lat) for lon, lat in zip(flood_lons, flood_lats)]
-        
+
         flood_data = {
             'DTRoad': np.random.exponential(50, data_size),
             'Freq Rainfall': np.random.uniform(0, 10, data_size),
@@ -839,19 +850,19 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
             'TWI': np.random.uniform(4, 12, data_size),
             'Aspect': np.random.uniform(0, 360, data_size),
             'CN': np.random.uniform(40, 100, data_size),
-            'Curve': np.random.normal(0, 1, data极狐_size),
+            'Curve': np.random.normal(0, 1, data_size),
             'DEM': np.random.normal(30, 10, data_size),
             'DTDrainage': np.random.exponential(150, data_size),
             'DTRiver': np.random.exponential(100, data_size),
             'Label': 1  # Flooded locations
         }
         flood_gdf = gpd.GeoDataFrame(flood_data, geometry=flood_geometry, crs="EPSG:4326")
-        
+
         # Non-flooded locations
         non_flood_lons = np.random.uniform(13.0, 13.8, data_size)
         non_flood_lats = np.random.uniform(52.3, 52.7, data_size)
         non_flood_geometry = [Point(lon, lat) for lon, lat in zip(non_flood_lons, non_flood_lats)]
-        
+
         non_flood_data = {
             'DTRoad': np.random.exponential(100, data_size),
             'Freq Rainfall': np.random.uniform(0, 5, data_size),
@@ -866,14 +877,14 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
             'Label': 0  # Non-flooded locations
         }
         non_flood_gdf = gpd.GeoDataFrame(non_flood_data, geometry=non_flood_geometry, crs="EPSG:4326")
-        
+
         points_data = gpd.GeoDataFrame(pd.concat([flood_gdf, non_flood_gdf], ignore_index=True), crs="EPSG:4326")
         st.session_state['points_data'] = points_data
         st.session_state['label_column'] = 'Label'
-    
+
     points_data = st.session_state['points_data']
     label_col = st.session_state['label_column']
-    
+
     # Check for null values
     st.subheader("Data Quality Check")
     null_counts = points_data.isnull().sum()
@@ -885,32 +896,32 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         st.success(f"Removed rows with missing values. New dataset size: {len(points_data)}")
     else:
         st.success("No missing values found in the dataset")
-    
+
     # Display data
     st.subheader("Processed Data Preview")
-    
+
     # Format numeric columns to 4 decimal places
     if not points_data.empty:
         # Create a copy for display
         display_data = points_data.copy()
-        
+
         # Format only numeric columns to 4 decimal places
         numeric_cols = display_data.select_dtypes(include([np.number])).columns
         for col in numeric_cols:
             display_data[col] = display_data[col].apply(lambda x: f"{x:.4f}" if isinstance(x, (int, float)) else x)
-        
+
         # Display first 5 rows
         st.dataframe(display_data.drop(columns=["geometry"]).head())
-    
+
     # Class distribution visualization
     st.subheader("Class Distribution")
     col1, col2 = st.columns([1, 2])
-    
+
     with col1:
         st.markdown("### Class Counts")
         class_counts = points_data[label_col].value_counts()
         st.dataframe(class_counts.rename("Count"))
-        
+
     with col2:
         fig, ax = plt.subplots(figsize=(8, 4))
         sns.countplot(x=label_col, data=points_data, ax=ax)
@@ -918,10 +929,10 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         ax.set_xticklabels(['Non-Flooded', 'Flooded'])
         ax.set_ylabel("Count")
         st.pyplot(fig)
-    
+
     # Feature distributions
     st.markdown('<div class="subheader">Feature Distributions</div>', unsafe_allow_html=True)
-    
+
     # Rename columns for display
     display_names = {
         'DEM': 'Altitude',
@@ -935,39 +946,39 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         'DTDrainage': 'Distance to Drainage',
         'Freq Rainfall': 'Frequency of Extreme Events'
     }
-    
+
     st.subheader("Feature Comparison: Flooded vs Non-Flooded Areas")
     fig, axes = plt.subplots(4, 3, figsize=(15, 15))
     features = list(display_names.keys())
-    
+
     for i, feature in enumerate(features):
         if feature in points_data.columns:
-            ax = axes[i//3, i%3]
+            ax = axes[i // 3, i % 3]
             sns.boxplot(x=label_col, y=feature, data=points_data, ax=ax)
-            ax极狐.set_title(display_names[feature])
+            ax.set_title(display_names[feature])
             ax.set_xticklabels(['Non-Flooded', 'Flooded'])
-    
+
     plt.tight_layout()
     st.pyplot(fig)
-    
+
     # Correlation analysis
     st.subheader("Feature Correlation Matrix")
-    
+
     # Get numeric columns only
-    numeric_cols = points_data.select_dtypes(include=[np.number]).columns.tolist()
-    
+    numeric_cols = points_data.select_dtypes(include([np.number])).columns.tolist()
+
     # Remove label column if present
     if label_col in numeric_cols:
         numeric_cols.remove(label_col)
-    
+
     # Only proceed if we have numeric columns
     if numeric_cols and len(numeric_cols) > 1:
         # Create a numeric-only dataframe
         numeric_data = points_data[numeric_cols]
-        
+
         # Calculate correlation matrix
         corr = numeric_data.corr()
-        
+
         # Plot the heatmap
         fig, ax = plt.subplots(figsize=(12, 10))
         sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
@@ -980,14 +991,15 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
 
 # Model Comparison Tab
 with tab2:
-    st.markdown('<div class="subheader">Model Comparison: Machine Learning vs Deep Learning</div>', unsafe_allow_html=True)
-    
+    st.markdown('<div class="subheader">Model Comparison: Machine Learning vs Deep Learning</div>',
+                unsafe_allow_html=True)
+
     # New research insight box
     st.markdown("""
     <div class="info-box">
         <h3>Model Suitability for Small Flood Datasets</h3>
         <p>Recent studies show that machine learning models outperform deep learning models when the available dataset is small:</p>
-        <极狐ul>
+        <ul>
             <li>Flood inventories are typically limited (50-200 locations)</li>
             <li>Deep learning requires large datasets to reach full potential</li>
             <li>Machine learning models provide better performance with limited data</li>
@@ -996,33 +1008,34 @@ with tab2:
         <p>Based on: Grinsztajn et al. (2022) and Shwartz-Ziv & Armon (2022)</p>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.session_state['points_data'] is not None and st.session_state['label_column'] in st.session_state['points_data'].columns:
+
+    if st.session_state['points_data'] is not None and st.session_state['label_column'] in st.session_state[
+        'points_data'].columns:
         points_data = st.session_state['points_data']
         label_col = st.session_state['label_column']
-        
+
         # Prepare data for modeling
         model_features = st.session_state['model_features']
-        
+
         # Check if all features are present
         missing_features = [feat for feat in model_features if feat not in points_data.columns]
         if missing_features:
             st.error(f"Missing required features: {', '.join(missing_features)}")
             st.stop()
-        
+
         X = points_data[model_features]
         y = points_data[label_col]
-        
+
         if not st.session_state['models_trained']:
             with st.spinner("Training models. This may take a few minutes..."):
                 model_results = train_models(X, y)
                 st.session_state['model_results'] = model_results
                 st.session_state['models_trained'] = True
                 st.success("Models trained successfully!")
-        
+
         if st.session_state['model_results'] is not None:
             model_results = st.session_state['model_results']
-            
+
             # Show data split information
             st.subheader("Data Split Information")
             data_splits = model_results["data_splits"]
@@ -1036,15 +1049,15 @@ with tab2:
                 "Percentage": ["60%", "20%", "20%"]
             })
             st.dataframe(split_info)
-            
+
             col1, col2 = st.columns([1, 1])
-            
+
             with col1:
                 st.markdown("""
                 <div class="model-card">
                     <h3>Point-based Models</h3>
                     <p>Traditional ML models using feature vectors:</p>
-                    
+
                     <div class="feature-grid">
                         <div class="feature-card">
                             <h4>Random Forest</h4>
@@ -1053,13 +1066,13 @@ with tab2:
                         <div class="feature-card">
                             <h4>SVM</h4>
                             <p>Accuracy: {:.2f}</p>
-                        </极狐div>
+                        </div>
                         <div class="feature-card">
                             <h4>ANN</h4>
                             <p>Accuracy: {:.2f}</p>
                         </div>
                     </div>
-                    
+
                     <p><b>Strengths</b>:</p>
                     <ul>
                         <li>Efficient for tabular data</li>
@@ -1073,21 +1086,21 @@ with tab2:
                     model_results['Support Vector Machine']['accuracy'],
                     model_results['Artificial Neural Network']['accuracy']
                 ), unsafe_allow_html=True)
-            
+
             with col2:
                 st.markdown("""
                 <div class="model-card">
                     <h3>Raster-based Model</h3>
-                    <极狐p>Convolutional Neural Network (CNN) using spatial data:</p>
-                    
+                    <p>Convolutional Neural Network (CNN) using spatial data:</p>
+
                     <div style="text-align: center; margin: 15px 0;">
-                        <img src="https://miro.medium.com/v2/resize:fit:1400/1*8q0ZJ2xJ9ZJ9ZJ9极狐ZJ9ZJ9Q.png" 
+                        <img src="https://miro.medium.com/v2/resize:fit:1400/1*8q0ZJ2xJ9ZJ9ZJ9ZJ9ZJ9Q.png" 
                              width="100%" style="border-radius: 8px;">
                         <p style="font-size: 0.8em; color: #666;">CNN architecture for spatial flood prediction</p>
                     </div>
-                    
+
                     <p><b>Accuracy</b>: {:.2f}</p>
-                    
+
                     <p><b>Strengths</b>:</p>
                     <ul>
                         <li>Captures spatial patterns</li>
@@ -1096,7 +1109,7 @@ with tab2:
                     </ul>
                 </div>
                 """.format(model_results['Convolutional Neural Network']['accuracy']), unsafe_allow_html=True)
-            
+
             st.markdown("""
             <div class="info-box">
                 <h3>Research Finding</h3>
@@ -1105,7 +1118,7 @@ with tab2:
                 to achieve better performance with limited training data.</p>
             </div>
             """, unsafe_allow_html=True)
-            
+
             # Random Forest visualization
             st.markdown("""
             <div class="model-card">
@@ -1125,23 +1138,23 @@ with tab2:
                 </ul>
             </div>
             """, unsafe_allow_html=True)
-            
+
             # Feature importance
             st.subheader("Feature Importance (Random Forest)")
             rf_model = model_results['Random Forest']['model']
-            
+
             # Get feature importances
             importances = rf_model.feature_importances_
             feature_importance = pd.DataFrame({
                 'Feature': model_features,
                 'Importance': importances
             }).sort_values('Importance', ascending=False)
-            
+
             fig = px.bar(feature_importance, x='Importance', y='Feature', orientation='h',
                          title='Feature Importance for Random Forest Model',
                          color='Importance', color_continuous_scale='Blues')
             st.plotly_chart(fig, use_container_width=True)
-            
+
             # SHAP explanation
             st.subheader("Model Explanation (SHAP Values)")
             with st.spinner("Generating SHAP explanations..."):
@@ -1150,10 +1163,10 @@ with tab2:
                     X_sample = X.sample(min(100, len(X)), random_state=42)
                     explainer = shap.TreeExplainer(rf_model)
                     shap_values = explainer.shap_values(X_sample)
-                    
+
                     fig, ax = plt.subplots()
                     shap.summary_plot(shap_values, X_sample, plot_type="bar", show=False)
-                    st.pyplot(f极狐ig)
+                    st.pyplot(fig)
                 except Exception as e:
                     st.warning(f"SHAP explanation failed: {str(e)}")
         else:
@@ -1164,7 +1177,7 @@ with tab2:
 # CNN Architecture Tab
 with tab3:
     st.markdown('<div class="subheader">Convolutional Neural Network Architecture</div>', unsafe_allow_html=True)
-    
+
     st.markdown("""
     <div class="cnn-architecture">
         <h3>CNN Model for Spatial Flood Prediction</h3>
@@ -1172,9 +1185,9 @@ with tab3:
         and to demonstrate how spatial relationships can be captured with deep learning.</p>
     </div>
     """, unsafe_allow_html=True)
-    
+
     col1, col2 = st.columns([1, 1])
-    
+
     with col1:
         st.markdown("""
         <div class="model-card">
@@ -1183,19 +1196,19 @@ with tab3:
                 <li>10 input bands (one for each feature)</li>
                 <li>32x32 pixel neighborhoods</li>
             </ul>
-            
+
             <h4>Convolutional Layers</h4>
             <ul>
                 <li>Conv2D (32 filters, 3x3 kernel)</li>
                 <li>ReLU activation</li>
-                <li>极狐MaxPooling (2x2)</li>
-                <li>Conv2D (64 filters, 3极狐x3 kernel)</li>
+                <li>MaxPooling (2x2)</li>
+                <li>Conv2D (64 filters, 3x3 kernel)</li>
                 <li>ReLU activation</li>
                 <li>MaxPooling (2x2)</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
-        
+
         st.markdown("""
         <div class="model-card">
             <h4>Training Parameters</h4>
@@ -1208,7 +1221,7 @@ with tab3:
             </ul>
         </div>
         """, unsafe_allow_html=True)
-    
+
     with col2:
         st.markdown("""
         <div class="model-card">
@@ -1217,35 +1230,35 @@ with tab3:
                 <li>Flatten layer</li>
                 <li>Dropout (0.5) for regularization</li>
             </ul>
-            
+
             <h4>Fully Connected Layers</h4>
             <ul>
                 <li>Dense (128 units, ReLU)</li>
-                <li>Dense (64 units, ReLU)</li>
+               极狐 <li>Dense (64 units, ReLU)</li>
                 <li>Output layer (1 unit, sigmoid)</li>
             </ul>
-            
+
             <div style="text-align: center; margin: 15px 0;">
-                <img src="https://www.researchgate.net/profile/Md-Rabius-Sany/publication/342222206/figure/fig1/AS:900960531759106@1592384780586/Architecture-of-the-convolutional-neural-network-CNN-model.png" 
+                <img src="https://www.researchgate.net/profile/Md-Rabius-Sany/publication/342222206/figure/fig1/AS:900960531759106@1592384780586/Architecture-of-the-convolutional-neural-network极狐-CNN-model.png" 
                      width="100%" style="border-radius: 8px;">
                 <p style="font-size: 0.8em; color: #666;">CNN architecture diagram</p>
-            </极狐div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-    
+
     st.markdown("""
     <div class="info-box">
-        <h3>Data Preparation for CNN</极狐h3>
-        <p>To train the CNN model, we convert our spatial features into multi-band raster images:</p>
+        <h3>Data Preparation for CNN</h3>
+        <p>To train the CNN model, we convert our spatial features into multi-band raster images:</极狐p>
         <ol>
             <li>Create 10 raster layers (one for each feature)</li>
             <li>Extract 32x32 pixel neighborhoods around each sample point</li>
-            <li>Normalize each band to 0-1 range</li>
-            <li>Split into training and testing datasets</li>
+            <极狐li>Normalize each band to 0-1 range</li>
+            <li>Split into training and testing datasets</极狐li>
         </ol>
     </div>
     """, unsafe_allow_html=True)
-    
+
     # Simulate CNN model creation
     if st.button("Initialize CNN Model"):
         with st.spinner("Creating CNN architecture..."):
@@ -1255,27 +1268,27 @@ with tab3:
             st.success("CNN model initialized successfully!")
             st.markdown("""
             <div class="model-card">
-                <h4>Model Summary</h4>
+                <h4极狐>Model Summary</h4>
                 <pre>Model: "sequential"
 _________________________________________________________________
  Layer (type)                Output Shape              Param #   
 =================================================================
  conv2d (Conv2D)             (None, 30, 30, 32)        320       
-                                                                 
+
  max_pooling2d (MaxPooling2D  (None, 15, 15, 32)       0         
  )                                                               
-                                                                 
+
  conv2d_1 (Conv2D)           (None, 13, 13, 64)        18496     
-                                                                 
- max_pooling2d_极狐1 (MaxPooling  (None, 6, 6, 64)         0         
+
+ max_pooling2d_1 (MaxPooling  (None, 6, 6, 64)         0         
  2D)                                                             
-                                                                 
+
  flatten (Flatten)           (None, 2304)              0         
-                                                                 
+
  dense (Dense)               (None, 128)               295040    
-                                                                 
+
  dense_1 (Dense)             (None, 1)                 129       
-                                                                 
+
 =================================================================
 Total params: 313,985
 Trainable params: 313,985
@@ -1287,14 +1300,14 @@ _________________________________________________________________</pre>
 # Performance Results Tab
 with tab4:
     st.markdown('<div class="subheader">Performance Results: Small Dataset Advantage</div>', unsafe_allow_html=True)
-    
+
     if st.session_state['model_results'] is not None:
         model_results = st.session_state['model_results']
-        
+
         # Prepare results dataframe
         results_data = []
         for model_name, metrics in model_results.items():
-            if model_name != "data_splits":  # Skip the data splits entry
+            if model_name != "极狐data_splits":  # Skip the data splits entry
                 results_data.append({
                     "Model": model_name,
                     "Accuracy": metrics['accuracy'],
@@ -1304,42 +1317,52 @@ with tab4:
                     "ROC AUC": metrics['roc_auc'],
                     "Training Time (min)": 5 if "Convolutional" in model_name else np.random.uniform(0.5, 3)
                 })
-        
+
         results_df = pd.DataFrame(results_data)
-        
+
         # Show key metrics in cards
         st.subheader("Key Performance Metrics")
         metric_cols = st.columns(5)
         rf_metrics = results_df[results_df['Model'] == 'Random Forest'].iloc[0]
-        
+
         with metric_cols[0]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Accuracy</div></div>'.format(rf_metrics['Accuracy']), unsafe_allow_html=True)
+            st.markdown(
+                '<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Accuracy</div></div>'.format(
+                    rf_metrics['Accuracy']), unsafe_allow_html=True)
         with metric_cols[1]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">F1 Score</div></div>'.format(rf_metrics['F1 Score']), unsafe_allow_html=True)
+            st.markdown(
+                '<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">F1 Score</div></div>'.format(
+                    rf_metrics['F1 Score']), unsafe_allow_html=True)
         with metric_cols[2]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2极狐f}</div><div class="metric-label">Precision</div></div>'.format(rf_metrics['Precision']), unsafe_allow_html=True)
+            st.markdown(
+                '<div class="metric-card"><极狐div class="metric-value">{:.2f}</div><div class="metric-label">Precision</div></div>'.format(
+                    rf_metrics['Precision']), unsafe_allow_html=True)
         with metric_cols[3]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Recall</div></div>'.format(rf_metrics['Recall']), unsafe_allow_html=True)
+            st.markdown(
+                '<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Recall</div></div>'.format(
+                    rf_metrics['Recall']), unsafe_allow_html=True)
         with metric_cols[4]:
-            st.markdown('<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">ROC AUC</div></div>'.format(rf_metrics['ROC AUC']), unsafe_allow_html=True)
-        
+            st.markdown(
+                '<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">ROC AUC</div></div>'.format(
+                    rf_metrics['ROC AUC']), unsafe_allow_html=True)
+
         # Model comparison charts
         col1, col2 = st.columns([1, 1])
-        
+
         with col1:
             st.subheader("Accuracy Comparison")
             fig = px.bar(results_df, x="Model", y="Accuracy", color="Model",
                          title="Model Accuracy Comparison",
                          color_discrete_sequence=px.colors.qualitative.Pastel)
             st.plotly_chart(fig, use_container_width=True)
-        
+
         with col2:
             st.subheader("ROC AUC Comparison")
-            fig = px.bar(results_df, x="Model", y="ROC AUC", color="Model",
+            fig = px.bar(results_df, x="Model", y="ROC AUC", color极狐="Model",
                          title="ROC AUC Comparison",
                          color_discrete_sequence=px.colors.qualitative.Pastel)
             st.plotly_chart(fig, use_container_width=True)
-        
+
         # Add relative performance visualization
         st.subheader("Relative Performance")
         st.markdown("""
@@ -1352,10 +1375,11 @@ with tab4:
             <p style="text-align: center;">RF performance advantage for small datasets</p>
         </div>
         """.format(
-            (rf_metrics['Accuracy'] - results_df[results_df['Model'] == 'Convolutional Neural Network']['Accuracy'].values[0]) * 100,
+            (rf_metrics['Accuracy'] -
+             results_df[results_df['Model'] == 'Convolutional Neural Network']['Accuracy'].values[0]) * 100,
             (rf_metrics['Accuracy'] - 0.7) * 100 / 0.3  # Scale to 70-100% range
         ), unsafe_allow_html=True)
-        
+
         # Update key findings with new research
         st.markdown("""
         <div class="info-box">
@@ -1371,158 +1395,158 @@ with tab4:
             rf_metrics['Accuracy'] * 100,
             len(st.session_state['points_data'])
         ), unsafe_allow_html=True)
-        
+
         # Add small dataset performance comparison
         st.subheader("Performance vs Dataset Size")
-        
-        # Create simulated data
-        sizes = [50, 100, 200, 500, 1000, 5000]
-        rf_acc = [0.72, 0.78, 0.82, 0.85, 0.87, 0.88]
-        cnn_acc = [0.65, 0.70, 0.75, 0.82, 0.87, 0.91]
-        
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=sizes, y=rf_acc,
-            name='Random Forest',
-            line=dict(color='#1f77b4', width=4)
-        ))
-        fig.add_trace(go.Scatter(
-            x=sizes, y=cnn_acc,
-            name='CNN',
-            line=dict(color='#ff7f0e', width=4, dash='dash')
-        ))
-        
-        # Add vertical line at typical flood inventory size
-        fig.add_vline(x=200, line_width=2, line_dash="dot", line_color="red",
-                     annotation_text="Typical Flood Inventory", 
-                     annotation_position="top right")
-        
-        fig.update_layout(
-            title='Model Performance vs Dataset Size',
-            xaxis_title='Number of Sample Locations',
-            yaxis_title='Accuracy',
-            hovermode="x unified",
-            template='plotly_white',
-            height=500
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Add interpretation
-        st.markdown("""
-        <div class极狐="model-card">
+
+极狐  # Create simulated data
+sizes = [50, 100, 200, 500, 1000, 5000]
+rf_acc = [0.72, 0.78, 0.82, 0.85, 0.87, 0.88]
+cnn_acc = [0.65, 0.70, 0.75, 0.82, 0.87, 0.91]
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(
+    x=sizes, y=rf_acc,
+    name='Random Forest',
+    line=dict(color='#1f77b4', width=4)
+))
+fig.add_trace(go.Scatter(
+    x=sizes, y=cnn_acc,
+    name='CNN',
+    line=dict(color='#ff7f0e', width=4, dash='dash')
+))
+
+# Add vertical line at typical flood inventory size
+fig.add_vline(x=200, line_width=2, line_dash="dot", line_color="red",
+              annotation_text="Typical Flood Inventory",
+              annotation_position="top right")
+
+fig.update_layout(
+    title='Model Performance vs Dataset Size',
+    xaxis_title='Number of Sample Locations',
+    yaxis_title='Accuracy',
+    hovermode="x unified",
+    template='plot极狐ly_white',
+    height=500
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# Add interpretation
+st.markdown("""
+        <div class="model-card">
             <h4>Interpretation</h4>
             <p>The simulation shows:</p>
             <ul>
-                <li>Random Forest outperforms CNN with datasets < 500 locations</li>
+                <li>Random Forest outperforms CNN with datasets < 500 locations</极狐li>
                 <li>Performance gap is most significant with very small datasets (50-200 locations)</li>
-                <li>CNN only surpasses ML models with large datasets (>5000 locations)</极狐li>
+                <li>CNN only surpasses ML models with large datasets (>5000 locations)</li>
             </ul>
             <p>This explains why machine learning models are preferred for flood susceptibility mapping where 
             comprehensive flood inventories are rarely available.</p>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Confusion matrices
-        st.subheader("Confusion Matrices")
-        conf_cols = st.columns(2)
-        
-        with conf_cols[0]:
-            st.markdown("#### Random Forest")
-            rf_cm = model_results['Random Forest']['confusion_matrix']
-            fig = px.imshow(rf_cm, text_auto=True, 
-                           labels=dict(x="Predicted", y="Actual", color="Count"),
-                           x=['Non-Flood', 'Flood'],
-                           y=['Non-Flood', 'Flood'],
-                           color_continuous_scale='Blues')
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with conf_cols[1]:
-            st.markdown("#### CNN")
-            cnn_cm = model_results['Convolutional Neural Network']['confusion_matrix']
-            fig = px.imshow(cnn_cm, text_auto=True, 
-                           labels=dict(x="Predicted", y="Actual", color="Count"),
-                           x=['Non-Flood', 'Flood'],
-                           y=['Non-Flood', 'Flood'],
-                           color_continuous_scale='Blues')
-            st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("Please train models in the 'Model Comparison' tab first")
+
+# Confusion matrices
+st.subheader("Confusion Matrices")
+conf_cols = st.columns(2)
+
+with conf_cols[0]:
+    st.markdown("#### Random Forest")
+    rf_cm = model_results['Random Forest']['confusion_matrix']
+    fig = px.imshow(rf_c极狐m, text_auto=True,
+                    labels=dict(x="Predicted", y="Actual", color="Count"),
+                    x=['Non-Flood', 'Flood'],
+                    y=['Non-Flood', 'Flood'],
+                    color_continuous_scale='Blues')
+    st.plotly_chart(fig, use_container_width=True)
+
+with conf_cols[1]:
+    st.markdown("#### CNN")
+    cnn_cm = model_results['Convolutional Neural Network']['confusion_matrix']
+    fig = px.imshow(cnn_cm, text_auto=True,
+                    labels=dict(x="Predicted", y="Actual", color="Count"),
+                    x=['Non-Flood', 'Flood'],
+                    y=['Non-Flood', 'Flood'],
+                    color_continuous_scale='Blues')
+    st.plotly_chart(fig, use_container_width=True)
+else:
+st.warning("Please train models in the 'Model Comparison' tab first")
 
 # Susceptibility Map Tab
 with tab5:
     st.markdown('<div class="subheader">Flood Susceptibility Map</div>', unsafe_allow_html=True)
-    
+
     if st.session_state['points_data'] is not None and st.session_state['model_results'] is not None:
         points_data = st.session_state['points_data']
         model_results = st.session_state['model_results']
         label_col = st.session_state['label_column']
         model_features = st.session_state['model_features']
-        
+
         # Select model
         model_options = list(model_results.keys())
         model_options = [m for m in model_options if m != "data_splits"]
         selected_model = st.selectbox("Select Model for Prediction", model_options, index=0)
-        
+
         # Prepare data
         X = points_data[model_features]
-        
+
         if "Convolutional" not in selected_model:
             model = model_results[selected_model]['model']
             points_data['flood_prob'] = model.predict_proba(X)[:, 1]
         else:
             # Simulated probabilities for CNN
             points_data['flood_prob'] = np.random.random(len(points_data))
-        
+
         # Create GeoDataFrame
         gdf = points_data.copy()
-        
+
         # Ensure we have a valid CRS
         if gdf.crs is None:
             gdf = gdf.set_crs(epsg=4326)
         elif gdf.crs != "EPSG:4326":
             gdf = gdf.to_crs(epsg=4326)
-        
+
         # Add longitude and latitude columns
         gdf['lon'] = gdf.geometry.x
         gdf['lat'] = gdf.geometry.y
-        
+
         # Risk classification
-        gdf['risk_level'] = pd.cut(gdf['flood_prob'], 
+        gdf['risk_level'] = pd.cut(gdf['flood_prob'],
                                    bins=[0, 0.2, 0.4, 0.6, 0.8, 1],
                                    labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
-        
+
         # Create color mapping - FIXED: Convert risk_level to string before mapping
         risk_colors = {
-            'Very Low': [34, 139, 34, 180],    # Green
-            'Low': [154, 205, 50, 180],        # Yellow-Green
-            'Moderate': [255, 215, 0, 180],    # Yellow
-            'High': [255, 140, 0, 180],        # Orange
-            'Very High': [220, 20, 60, 180]    # Red
+            'Very Low': [34, 139, 34, 180],  # Green
+            'Low': [154, 205, 50, 180],  # Yellow-Green
+            'Moderate': [255, 215, 0, 180],  # Yellow
+            'High': [255, 140, 0, 180],  # Orange
+            'Very High': [220, 20, 60, 180]  # Red
         }
-        
+
         # Convert risk_level to string before mapping
         gdf['risk_level_str'] = gdf['risk_level'].astype(str)
         gdf['color'] = gdf['risk_level_str'].map(risk_colors)
-        
+
         # Create PyDeck map for point visualization
         st.subheader("Flood Susceptibility Point Visualization")
-        
+
         # Calculate center for the map
         avg_lat = gdf['lat'].mean()
         avg_lon = gdf['lon'].mean()
-        
+
         # Create scatterplot layer
         scatter_layer = pdk.Layer(
             "ScatterplotLayer",
             data=gdf,
-            get_position=['lon极狐', 'lat'],
+            get_position=['lon', 'lat'],
             get_fill_color='color',
             get_radius=50,
             pickable=True,
             opacity=0.8
         )
-        
+
         # Create tooltip
         tooltip = {
             "html": "<b>Risk:</b> {risk_level}<br><b>Probability:</b> {flood_prob:.2f}",
@@ -1531,9 +1555,9 @@ with tab5:
                 "color": "white"
             }
         }
-        
+
         # Create deck
-        deck = p极狐dk.Deck(
+        deck = pdk.Deck(
             map_style='mapbox://styles/mapbox/light-v9',
             initial_view_state=pdk.ViewState(
                 latitude=avg_lat,
@@ -1544,16 +1568,16 @@ with tab5:
             layers=[scatter_layer],
             tooltip=tooltip
         )
-        
+
         # Display the map
         st.pydeck_chart(deck)
-        
+
         # Add custom legend
         st.markdown("""
         <div class="legend-container">
             <h4>Risk Legend</h4>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(34, 139, 34);"></div>
+                <div class="legend-color极狐" style="background-color: rgb(34, 139, 34);"></div>
                 <span>Very Low</span>
             </div>
             <div class="legend-item">
@@ -1571,10 +1595,10 @@ with tab5:
             <div class="legend-item">
                 <div class="legend-color" style="background-color: rgb(220, 20, 60);"></div>
                 <span>Very High</span>
-            </div>
+            </极狐div>
         </div>
         """, unsafe_allow_html=True)
-        
+
         # Add button to generate raster map
         if st.button("Generate Susceptibility Raster Map"):
             with st.spinner("Generating susceptibility raster. This may take a few minutes..."):
@@ -1582,11 +1606,11 @@ with tab5:
                 if generate_susceptibility_raster(gdf, model_features, 'flood_prob', output_path):
                     st.session_state['raster_path'] = output_path
                     st.success("Raster map generated successfully!")
-        
+
         # Display raster if generated
         if 'raster_path' in st.session_state and st.session_state['raster_path']:
             st.subheader("Flood Susceptibility Raster Map")
-            
+
             # Classification parameters
             classes = {
                 "Very low": (0, 0.2),
@@ -1596,20 +1620,20 @@ with tab5:
                 "Very high": (0.8, 1.0)
             }
             colors = ['#fee5d9', '#fcae91', '#fb6a4a', '#de2d26', '#a50f15']
-            
+
             # Plot raster
             col1, col2 = st.columns([2, 1])
             with col1:
-                fig, ax = plt.subplots(figsize=(10, 8))
+                fig极狐, ax = plt.subplots(figsize=(10, 8))
                 with rasterio.open(st.session_state['raster_path']) as src:
                     data = src.read(1)
                     # Apply classification
                     classified = np.digitize(data, bins=[0.2, 0.4, 0.6, 0.8])
                     cmap = ListedColormap(colors)
-                    im = ax.imshow(classified, cmap极狐=cmap, vmin=0, vmax=4)
+                    im = ax.imshow(classified, cmap=cmap, vmin=0, vmax=4)
                     plt.axis('off')
                     st.pyplot(fig)
-            
+
             with col2:
                 st.markdown("""
                 <div class="raster-legend">
@@ -1627,7 +1651,7 @@ with tab5:
                         <span>Moderate</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style极狐="background-color: #de2d26;"></div>
+                        <div class="legend-color" style="background-color: #de2d26;"></div>
                         <span>High</span>
                     </div>
                     <div class="legend-item">
@@ -1636,7 +1660,7 @@ with tab5:
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-                
+
                 # Add scale bar explanation
                 st.markdown("""
                 <div style="margin-top: 20px;">
@@ -1645,39 +1669,39 @@ with tab5:
                     <div style="display: flex; justify-content: space-between; width: 100%; margin-top: 5px;">
                         <div style="height: 2px; background: black; width: 25%;"></div>
                         <div style="height: 2px; background: black; width: 25%;"></div>
-                        <div style="height: 2px; background: black; width: 25%;"></div>
-                        <div style="height: 2px; background: black; width: 25%;"></极狐div>
+                        <div style="height: 2px; background: black极狐; width: 25%;"></div>
+                        <div style="极狐height: 2px; background: black; width: 25%;"></div>
                     </div>
                 </div>
                 """)
-        
+
         # Risk distribution
         st.subheader("Risk Distribution")
         col1, col2 = st.columns([1, 2])
-        
+
         with col1:
             st.markdown("### Risk Level Distribution")
             risk_counts = gdf['risk_level'].value_counts().sort_index()
-            fig = px.pie(risk_counts, 
-                         names=risk_counts.index, 
+            fig = px.pie(risk_counts,
+                         names=risk_counts.index,
                          values=risk_counts.values,
                          hole=0.4,
                          color=risk_counts.index,
                          color_discrete_sequence=['#228B22', '#9ACD32', '#FFD700', '#FF8C00', '#DC143C'])
             st.plotly_chart(fig, use_container_width=True)
-        
+
         with col2:
             st.markdown("### Risk Level by Location Type")
             if label_col in gdf.columns:
                 fig = px.histogram(gdf, x='risk_level', color=label_col,
                                    barmode='group',
                                    color_discrete_sequence=['#1f77b4', '#ff7f0e'],
-                                   labels={'risk_level': 'Risk Level', '极狐count': 'Number of Locations'},
+                                   labels={'risk_level': 'Risk Level', 'count': 'Number of Locations'},
                                    category_orders={"risk_level": ['Very Low', 'Low', 'Moderate', 'High', 'Very High']})
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.warning(f"Cannot show by location type - label column '{label_col}' not found")
-        
+
         # Download results
         st.subheader("Download Results")
         if st.button("Export Susceptibility Map Data"):
@@ -1686,7 +1710,7 @@ with tab5:
                 download_data = gdf.drop(columns=['geometry', 'color']) if 'geometry' in gdf.columns else gdf.copy()
             else:
                 download_data = gdf.drop(columns=['color'], errors='ignore')
-            
+
             csv = download_data.to_csv(index=False)
             st.download_button(
                 label="Download CSV",
