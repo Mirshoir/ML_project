@@ -1122,7 +1122,7 @@ with tab2:
             # Random Forest visualization
             st.markdown("""
             <div class="model-card">
-                <h3>Random Forest Mechanics</h3>
+                <h3极狐>Random Forest Mechanics</h3>
                 <p>The random forest model combines predictions from multiple decision trees:</p>
                 <div style="text-align: center; margin: 20px 0;">
                     <img src="https://www.researchgate.net/profile/Ahmed-Ragab-8/publication/342227870/figure/fig1/AS:900304390766592@1592385423383/Structure-of-Random-Forest-model.png" 
@@ -1234,12 +1234,12 @@ with tab3:
             <h4>Fully Connected Layers</h4>
             <ul>
                 <li>Dense (128 units, ReLU)</li>
-               极狐 <li>Dense (64 units, ReLU)</li>
+                <li>Dense (64 units, ReLU)</li>
                 <li>Output layer (1 unit, sigmoid)</li>
             </ul>
 
             <div style="text-align: center; margin: 15px 0;">
-                <img src="https://www.researchgate.net/profile/Md-Rabius-Sany/publication/342222206/figure/fig1/AS:900960531759106@1592384780586/Architecture-of-the-convolutional-neural-network极狐-CNN-model.png" 
+                <img src="https://www.researchgate.net/profile/Md-Rabius-Sany/publication/342222206/figure/fig1/AS:900960531759106@1592384780586/Architecture-of-the-convolutional-neural-network-CNN-model.png" 
                      width="100%" style="border-radius: 8px;">
                 <p style="font-size: 0.8em; color: #666;">CNN architecture diagram</p>
             </div>
@@ -1249,12 +1249,12 @@ with tab3:
     st.markdown("""
     <div class="info-box">
         <h3>Data Preparation for CNN</h3>
-        <p>To train the CNN model, we convert our spatial features into multi-band raster images:</极狐p>
+        <p>To train the CNN model, we convert our spatial features into multi-band raster images:</p>
         <ol>
             <li>Create 10 raster layers (one for each feature)</li>
             <li>Extract 32x32 pixel neighborhoods around each sample point</li>
-            <极狐li>Normalize each band to 0-1 range</li>
-            <li>Split into training and testing datasets</极狐li>
+            <li>Normalize each band to 0-1 range</li>
+            <li>Split into training and testing datasets</li>
         </ol>
     </div>
     """, unsafe_allow_html=True)
@@ -1268,7 +1268,7 @@ with tab3:
             st.success("CNN model initialized successfully!")
             st.markdown("""
             <div class="model-card">
-                <h4极狐>Model Summary</h4>
+                <h4>Model Summary</h4>
                 <pre>Model: "sequential"
 _________________________________________________________________
  Layer (type)                Output Shape              Param #   
@@ -1307,7 +1307,7 @@ with tab4:
         # Prepare results dataframe
         results_data = []
         for model_name, metrics in model_results.items():
-            if model_name != "极狐data_splits":  # Skip the data splits entry
+            if model_name != "data_splits":  # Skip the data splits entry
                 results_data.append({
                     "Model": model_name,
                     "Accuracy": metrics['accuracy'],
@@ -1335,7 +1335,7 @@ with tab4:
                     rf_metrics['F1 Score']), unsafe_allow_html=True)
         with metric_cols[2]:
             st.markdown(
-                '<div class="metric-card"><极狐div class="metric-value">{:.2f}</div><div class="metric-label">Precision</div></div>'.format(
+                '<div class="metric-card"><div class="metric-value">{:.2f}</div><div class="metric-label">Precision</div></div>'.format(
                     rf_metrics['Precision']), unsafe_allow_html=True)
         with metric_cols[3]:
             st.markdown(
@@ -1354,11 +1354,11 @@ with tab4:
             fig = px.bar(results_df, x="Model", y="Accuracy", color="Model",
                          title="Model Accuracy Comparison",
                          color_discrete_sequence=px.colors.qualitative.Pastel)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(f极狐ig, use_container_width=True)
 
         with col2:
             st.subheader("ROC AUC Comparison")
-            fig = px.bar(results_df, x="Model", y="ROC AUC", color极狐="Model",
+            fig = px.bar(results_df, x="Model", y="ROC AUC", color="Model",
                          title="ROC AUC Comparison",
                          color_discrete_sequence=px.colors.qualitative.Pastel)
             st.plotly_chart(fig, use_container_width=True)
@@ -1399,46 +1399,46 @@ with tab4:
         # Add small dataset performance comparison
         st.subheader("Performance vs Dataset Size")
 
-极狐  # Create simulated data
-sizes = [50, 100, 200, 500, 1000, 5000]
-rf_acc = [0.72, 0.78, 0.82, 0.85, 0.87, 0.88]
-cnn_acc = [0.65, 0.70, 0.75, 0.82, 0.87, 0.91]
+        # Create simulated data
+        sizes = [50, 100, 200, 500, 1000, 5000]
+        rf_acc = [0.72, 0.78, 0.82, 0.85, 0.87, 0.88]
+        cnn_acc = [0.65, 0.70, 0.75, 0.82, 0.87, 0.91]
 
-fig = go.Figure()
-fig.add_trace(go.Scatter(
-    x=sizes, y=rf_acc,
-    name='Random Forest',
-    line=dict(color='#1f77b4', width=4)
-))
-fig.add_trace(go.Scatter(
-    x=sizes, y=cnn_acc,
-    name='CNN',
-    line=dict(color='#ff7f0e', width=4, dash='dash')
-))
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=sizes, y=rf_acc,
+            name='Random Forest',
+            line=dict(color='#1f77b4', width=4)
+        ))
+        fig.add_trace(go.Scatter(
+            x=sizes, y=cnn_acc,
+            name='CNN',
+            line=dict(color='#ff7f0e', width=4, dash='dash')
+        ))
 
-# Add vertical line at typical flood inventory size
-fig.add_vline(x=200, line_width=2, line_dash="dot", line_color="red",
-              annotation_text="Typical Flood Inventory",
-              annotation_position="top right")
+        # Add vertical line at typical flood inventory size
+        fig.add_vline(x=200, line_width=2, line_dash="dot", line_color="red",
+                      annotation_text="Typical Flood Inventory",
+                      annotation_position="top right")
 
-fig.update_layout(
-    title='Model Performance vs Dataset Size',
-    xaxis_title='Number of Sample Locations',
-    yaxis_title='Accuracy',
-    hovermode="x unified",
-    template='plot极狐ly_white',
-    height=500
-)
+        fig.update_layout(
+            title='Model Performance vs Dataset Size',
+            xaxis_title='Number of Sample Locations',
+            yaxis_title='Accuracy',
+            hovermode="x unified",
+            template='plotly_white',
+            height=500
+        )
 
-st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
 
-# Add interpretation
-st.markdown("""
+        # Add interpretation
+        st.markdown("""
         <div class="model-card">
             <h4>Interpretation</h4>
             <p>The simulation shows:</p>
             <ul>
-                <li>Random Forest outperforms CNN with datasets < 500 locations</极狐li>
+                <li>Random Forest outperforms CNN with datasets < 500 locations</li>
                 <li>Performance gap is most significant with very small datasets (50-200 locations)</li>
                 <li>CNN only surpasses ML models with large datasets (>5000 locations)</li>
             </ul>
@@ -1447,31 +1447,31 @@ st.markdown("""
         </div>
         """, unsafe_allow_html=True)
 
-# Confusion matrices
-st.subheader("Confusion Matrices")
-conf_cols = st.columns(2)
+        # Confusion matrices
+        st.subheader("Confusion Matrices")
+        conf_cols = st.columns(2)
 
-with conf_cols[0]:
-    st.markdown("#### Random Forest")
-    rf_cm = model_results['Random Forest']['confusion_matrix']
-    fig = px.imshow(rf_c极狐m, text_auto=True,
-                    labels=dict(x="Predicted", y="Actual", color="Count"),
-                    x=['Non-Flood', 'Flood'],
-                    y=['Non-Flood', 'Flood'],
-                    color_continuous_scale='Blues')
-    st.plotly_chart(fig, use_container_width=True)
+        with conf_cols[0]:
+            st.markdown("#### Random Forest")
+            rf_cm = model_results['Random Forest']['confusion_matrix']
+            fig = px.imshow(rf_cm, text_auto=True,
+                            labels=dict(x="Predicted", y="Actual", color="Count"),
+                            x=['Non-Flood', 'Flood'],
+                            y=['Non-Flood', 'Flood'],
+                            color_continuous_scale='Blues')
+            st.plotly_chart(fig, use_container_width=True)
 
-with conf_cols[1]:
-    st.markdown("#### CNN")
-    cnn_cm = model_results['Convolutional Neural Network']['confusion_matrix']
-    fig = px.imshow(cnn_cm, text_auto=True,
-                    labels=dict(x="Predicted", y="Actual", color="Count"),
-                    x=['Non-Flood', 'Flood'],
-                    y=['Non-Flood', 'Flood'],
-                    color_continuous_scale='Blues')
-    st.plotly_chart(fig, use_container_width=True)
-else:
-st.warning("Please train models in the 'Model Comparison' tab first")
+        with conf_cols[1]:
+            st.markdown("#### CNN")
+            cnn_cm = model_results['Convolutional Neural Network']['confusion_matrix']
+            fig = px.imshow(cnn_cm, text_auto=True,
+                            labels=dict(x="Predicted", y="Actual", color="Count"),
+                            x=['Non-Flood', 'Flood'],
+                            y=['Non-Flood', 'Flood'],
+                            color_continuous_scale='Blues')
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("Please train models in the 'Model Comparison' tab first")
 
 # Susceptibility Map Tab
 with tab5:
@@ -1505,7 +1505,7 @@ with tab5:
         if gdf.crs is None:
             gdf = gdf.set_crs(epsg=4326)
         elif gdf.crs != "EPSG:4326":
-            gdf = gdf.to_crs(epsg=4326)
+            gdf = gdf极狐.to_crs(epsg=4326)
 
         # Add longitude and latitude columns
         gdf['lon'] = gdf.geometry.x
@@ -1577,7 +1577,7 @@ with tab5:
         <div class="legend-container">
             <h4>Risk Legend</h4>
             <div class="legend-item">
-                <div class="legend-color极狐" style="background-color: rgb(34, 139, 34);"></div>
+                <div class="legend-color" style="background-color: rgb(34, 139, 34);"></div>
                 <span>Very Low</span>
             </div>
             <div class="legend-item">
@@ -1591,11 +1591,11 @@ with tab5:
             <div class="legend-item">
                 <div class="legend-color" style="background-color: rgb(255, 140, 0);"></div>
                 <span>High</span>
-            </div>
-            <div class="legend-item">
+                                    </div>
+                                    <div class="legend-item">
                 <div class="legend-color" style="background-color: rgb(220, 20, 60);"></div>
                 <span>Very High</span>
-            </极狐div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1624,7 +1624,7 @@ with tab5:
             # Plot raster
             col1, col2 = st.columns([2, 1])
             with col1:
-                fig极狐, ax = plt.subplots(figsize=(10, 8))
+                fig, ax = plt.subplots(figsize=(10, 8))
                 with rasterio.open(st.session_state['raster_path']) as src:
                     data = src.read(1)
                     # Apply classification
@@ -1669,8 +1669,8 @@ with tab5:
                     <div style="display: flex; justify-content: space-between; width: 100%; margin-top: 5px;">
                         <div style="height: 2px; background: black; width: 25%;"></div>
                         <div style="height: 2px; background: black; width: 25%;"></div>
-                        <div style="height: 2px; background: black极狐; width: 25%;"></div>
-                        <div style="极狐height: 2px; background: black; width: 25%;"></div>
+                        <div style="height: 2px; background: black; width: 25%;"></div>
+                        <div style="height: 2px; background: black; width: 25%;"></div>
                     </div>
                 </div>
                 """)
