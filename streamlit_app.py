@@ -898,47 +898,57 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         st.success("No missing values found in the dataset")
 
     # Display data
+    # Display data
     st.subheader("Processed Data Preview")
 
-    # Format numeric columns to 4 decimal places
-    # Create a copy for display but keep numeric column names from the original points_data
-    if not points_data.empty:
-        display_data = points_data.copy()
+    # --- Safe numeric formatting + correlation block ---
+    # Ensure numeric_col_names exists even if points_data is empty
+    numeric_col_names = []
 
-        # Get numeric column names from the original (unmodified) GeoDataFrame
+    if not points_data.empty:
+        # Get numeric column names as a plain Python list (from the original points_data)
         numeric_col_names = points_data.select_dtypes(include=[np.number]).columns.tolist()
 
-        # Remove geometry if present and remove the label column (we don't want to correlate label into predictors)
-        numeric_col_names = [c for c in numeric_col_names if c not in ('geometry', label_col)]
+        # Remove columns we don't want to include in numeric analysis, if present
+        for c in ('geometry', label_col):
+            if c in numeric_col_names:
+                numeric_col_names.remove(c)
 
-        # Format only numeric columns in display_data for pretty display (string formatting does not affect points_data)
+        # Create a copy for display and prettify numeric columns (doesn't change original dtypes)
+        display_data = points_data.copy()
         for col in numeric_col_names:
+            # format numeric cells for display only (keep NaN untouched)
             display_data[col] = display_data[col].apply(lambda x: f"{x:.4f}" if pd.notnull(x) else x)
 
-        # Safe display: if geometry exists drop it for a table preview
-        preview_df = display_data.drop(columns=['geometry']) if 'geometry' in display_data.columns else display_data
+        # Drop geometry column for table preview (ignore if it doesn't exist)
+        preview_df = display_data.drop(columns=['geometry'], errors='ignore')
         st.dataframe(preview_df.head())
 
     # Correlation analysis
     st.subheader("Feature Correlation Matrix")
 
-    # Use numeric_col_names (list of column names) for correlation checks
+    # Only proceed if we have at least two numeric features to correlate
     if len(numeric_col_names) > 1:
-        # Create a numeric-only dataframe from the original points_data (not the display_data that was stringified)
-        numeric_data = points_data[numeric_col_names]
+        # Use the original points_data (not the stringified display_data)
+        numeric_data = points_data[numeric_col_names].copy()
 
-        # Calculate correlation matrix
-        corr = numeric_data.corr()
+        # Optional: drop columns/rows that are entirely NaN to avoid errors in corr()
+        numeric_data = numeric_data.dropna(axis=0, how='all')
+        numeric_data = numeric_data.dropna(axis=1, how='all')
 
-        # Plot the heatmap
-        fig, ax = plt.subplots(figsize=(12, 10))
-        sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
-                    annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
-        plt.xticks(rotation=45, ha='right')
-        plt.yticks(rotation=0)
-        st.pyplot(fig)
-    else:
-        st.warning("Not enough numeric columns available for correlation analysis")
+        if numeric_data.shape[1] > 1:
+            corr = numeric_data.corr()
+
+            fig, ax = plt.subplots(figsize=(min(12, 1.5 * len(corr)), 10))
+            sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
+                        annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
+            plt.xticks(rotation=45, ha='right')
+            plt.yticks(rotation=0)
+            st.pyplot(fig)
+        else:
+            st.warning("Not enough non-empty numeric columns after dropping all-NaN columns.")
+    
+    # --- end replacement block ---
 
     # Class distribution visualization
     st.subheader("Class Distribution")
