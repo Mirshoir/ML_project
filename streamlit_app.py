@@ -901,17 +901,44 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
     st.subheader("Processed Data Preview")
 
     # Format numeric columns to 4 decimal places
+    # Create a copy for display but keep numeric column names from the original points_data
     if not points_data.empty:
-        # Create a copy for display
         display_data = points_data.copy()
 
-        # Format only numeric columns to 4 decimal places
-        # Format only numeric columns to 4 decimal places
-        numeric_cols = display_data.select_dtypes(include=[np.number])
-        for col in numeric_cols:
-            display_data[col] = display_data[col].apply(lambda x: f"{x:.4f}" if isinstance(x, (int, float)) else x)
-        # Display first 5 rows
-        st.dataframe(display_data.drop(columns=["geometry"]).head())
+        # Get numeric column names from the original (unmodified) GeoDataFrame
+        numeric_col_names = points_data.select_dtypes(include=[np.number]).columns.tolist()
+
+        # Remove geometry if present and remove the label column (we don't want to correlate label into predictors)
+        numeric_col_names = [c for c in numeric_col_names if c not in ('geometry', label_col)]
+
+        # Format only numeric columns in display_data for pretty display (string formatting does not affect points_data)
+        for col in numeric_col_names:
+            display_data[col] = display_data[col].apply(lambda x: f"{x:.4f}" if pd.notnull(x) else x)
+
+        # Safe display: if geometry exists drop it for a table preview
+        preview_df = display_data.drop(columns=['geometry']) if 'geometry' in display_data.columns else display_data
+        st.dataframe(preview_df.head())
+
+    # Correlation analysis
+    st.subheader("Feature Correlation Matrix")
+
+    # Use numeric_col_names (list of column names) for correlation checks
+    if len(numeric_col_names) > 1:
+        # Create a numeric-only dataframe from the original points_data (not the display_data that was stringified)
+        numeric_data = points_data[numeric_col_names]
+
+        # Calculate correlation matrix
+        corr = numeric_data.corr()
+
+        # Plot the heatmap
+        fig, ax = plt.subplots(figsize=(12, 10))
+        sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
+                    annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
+        st.pyplot(fig)
+    else:
+        st.warning("Not enough numeric columns available for correlation analysis")
 
     # Class distribution visualization
     st.subheader("Class Distribution")
