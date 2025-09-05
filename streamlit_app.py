@@ -1354,7 +1354,7 @@ with tab4:
             fig = px.bar(results_df, x="Model", y="Accuracy", color="Model",
                          title="Model Accuracy Comparison",
                          color_discrete_sequence=px.colors.qualitative.Pastel)
-            st.plotly_chart(f极狐ig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
 
         with col2:
             st.subheader("ROC AUC Comparison")
