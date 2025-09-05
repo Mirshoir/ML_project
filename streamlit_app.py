@@ -965,8 +965,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
     st.subheader("Feature Correlation Matrix")
 
     # Get numeric columns only
-    numeric_cols = points_data.select_dtypes(include([np.number])).columns.tolist()
-
+    numeric_cols = display_data.select_dtypes(include=[np.number])
     # Remove label column if present
     if label_col in numeric_cols:
         numeric_cols.remove(label_col)
@@ -1505,7 +1504,7 @@ with tab5:
         if gdf.crs is None:
             gdf = gdf.set_crs(epsg=4326)
         elif gdf.crs != "EPSG:4326":
-            gdf = gdf极狐.to_crs(epsg=4326)
+            gdf = gdf.to_crs(epsg=4326)
 
         # Add longitude and latitude columns
         gdf['lon'] = gdf.geometry.x
