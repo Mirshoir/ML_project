@@ -366,10 +366,17 @@ def clip_raster_with_shapefile(raster_path, shapefile_path, output_path):
     try:
         # Read the shapefile
         shapes = gpd.read_file(shapefile_path)
-
-        # Make sure shapes are in same CRS as raster
+        
+        # Ensure shapes have a CRS (if not, assume it's the same as raster)
         with rasterio.open(raster_path) as src:
-            shapes = shapes.to_crs(src.crs)
+            if shapes.crs is None:
+                # Set the CRS to match the raster
+                shapes.crs = src.crs
+                st.warning(f"Shapefile had no CRS. Assumed CRS: {src.crs}")
+            else:
+                # Make sure shapes are in same CRS as raster
+                shapes = shapes.to_crs(src.crs)
+                
             shapes_geoms = [geom for geom in shapes.geometry]
 
             # Clip the raster
@@ -399,6 +406,12 @@ def process_shapefile_and_raster(points_shp_path, composite_raster_path, buffer_
     try:
         # Read the points shapefile
         points = gpd.read_file(points_shp_path)
+        
+        # Ensure points have a CRS
+        with rasterio.open(composite_raster_path) as src:
+            if points.crs is None:
+                points.crs = src.crs
+                st.warning(f"Points shapefile had no CRS. Assumed CRS: {src.crs}")
 
         # Create square buffers
         points['geometry'] = points.buffer(buffer_distance)
@@ -621,6 +634,18 @@ with tab0:
                         # Save raster
                         with open(raster_path, "wb") as f:
                             f.write(raster_file.getbuffer())
+
+                        # Check CRS consistency
+                        points_gdf = gpd.read_file(points_path)
+                        with rasterio.open(raster_path) as src:
+                            if points_gdf.crs is None:
+                                st.warning("Shapefile doesn't have a defined CRS. Using raster CRS.")
+                                points_gdf.crs = src.crs
+                                points_gdf.to_file(points_path)
+                            elif points_gdf.crs != src.crs:
+                                st.warning(f"Shapefile CRS ({points_gdf.crs}) doesn't match raster CRS ({src.crs}). Converting shapefile to raster CRS.")
+                                points_gdf = points_gdf.to_crs(src.crs)
+                                points_gdf.to_file(points_path)
 
                         # Process the data
                         success, squares_path, divided_dir, flooded_dir, not_flooded_dir = process_shapefile_and_raster(
@@ -1581,11 +1606,7 @@ with tab5:
                 <div class="legend-color" style="background-color: rgb(154, 205, 50);"></div>
                 <span>Low</span>
             </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(255, 215, 0);"></div>
-                <span>Moderate</span>
-            </div>
-            <div class="legend-item">
+                        <div class="legend-item">
                 <div class="legend-color" style="background-color: rgb(255, 140, 0);"></div>
                 <span>High</span>
             </div>
