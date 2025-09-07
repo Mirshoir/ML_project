@@ -898,57 +898,18 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         st.success("No missing values found in the dataset")
 
     # Display data
-    # Display data
     st.subheader("Processed Data Preview")
 
-    # --- Safe numeric formatting + correlation block ---
-    # Ensure numeric_col_names exists even if points_data is empty
-    numeric_col_names = []
+    # Create a copy for display and prettify numeric columns
+    display_data = points_data.copy()
+    numeric_cols = display_data.select_dtypes(include=[np.number]).columns.tolist()
+    for col in numeric_cols:
+        # Format numeric cells for display only
+        display_data[col] = display_data[col].apply(lambda x: f"{x:.4f}" if pd.notnull(x) else x)
 
-    if not points_data.empty:
-        # Get numeric column names as a plain Python list (from the original points_data)
-        numeric_col_names = points_data.select_dtypes(include=[np.number]).columns.tolist()
-
-        # Remove columns we don't want to include in numeric analysis, if present
-        for c in ('geometry', label_col):
-            if c in numeric_col_names:
-                numeric_col_names.remove(c)
-
-        # Create a copy for display and prettify numeric columns (doesn't change original dtypes)
-        display_data = points_data.copy()
-        for col in numeric_col_names:
-            # format numeric cells for display only (keep NaN untouched)
-            display_data[col] = display_data[col].apply(lambda x: f"{x:.4f}" if pd.notnull(x) else x)
-
-        # Drop geometry column for table preview (ignore if it doesn't exist)
-        preview_df = display_data.drop(columns=['geometry'], errors='ignore')
-        st.dataframe(preview_df.head())
-
-    # Correlation analysis
-    st.subheader("Feature Correlation Matrix")
-
-    # Only proceed if we have at least two numeric features to correlate
-    if len(numeric_col_names) > 1:
-        # Use the original points_data (not the stringified display_data)
-        numeric_data = points_data[numeric_col_names].copy()
-
-        # Optional: drop columns/rows that are entirely NaN to avoid errors in corr()
-        numeric_data = numeric_data.dropna(axis=0, how='all')
-        numeric_data = numeric_data.dropna(axis=1, how='all')
-
-        if numeric_data.shape[1] > 1:
-            corr = numeric_data.corr()
-
-            fig, ax = plt.subplots(figsize=(min(12, 1.5 * len(corr)), 10))
-            sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
-                        annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
-            plt.xticks(rotation=45, ha='right')
-            plt.yticks(rotation=0)
-            st.pyplot(fig)
-        else:
-            st.warning("Not enough non-empty numeric columns after dropping all-NaN columns.")
-    
-    # --- end replacement block ---
+    # Drop geometry column for table preview
+    preview_df = display_data.drop(columns=['geometry'], errors='ignore')
+    st.dataframe(preview_df.head())
 
     # Class distribution visualization
     st.subheader("Class Distribution")
@@ -1002,7 +963,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
     st.subheader("Feature Correlation Matrix")
 
     # Get numeric columns only
-    numeric_cols = display_data.select_dtypes(include=[np.number])
+    numeric_cols = points_data.select_dtypes(include=[np.number]).columns.tolist()
     # Remove label column if present
     if label_col in numeric_cols:
         numeric_cols.remove(label_col)
@@ -1016,7 +977,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         corr = numeric_data.corr()
 
         # Plot the heatmap
-        fig, ax = plt.subplots(figsize=(12, 10))
+        fig, ax = plt.subforms(figsize=(12, 10))
         sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
                     annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
         plt.xticks(rotation=45, ha='right')
@@ -1158,7 +1119,7 @@ with tab2:
             # Random Forest visualization
             st.markdown("""
             <div class="model-card">
-                <h3极狐>Random Forest Mechanics</h3>
+                <h3>Random Forest Mechanics</h3>
                 <p>The random forest model combines predictions from multiple decision trees:</p>
                 <div style="text-align: center; margin: 20px 0;">
                     <img src="https://www.researchgate.net/profile/Ahmed-Ragab-8/publication/342227870/figure/fig1/AS:900304390766592@1592385423383/Structure-of-Random-Forest-model.png" 
@@ -1552,7 +1513,7 @@ with tab5:
                                    bins=[0, 0.2, 0.4, 0.6, 0.8, 1],
                                    labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
 
-        # Create color mapping - FIXED: Convert risk_level to string before mapping
+        # Create color mapping
         risk_colors = {
             'Very Low': [34, 139, 34, 180],  # Green
             'Low': [154, 205, 50, 180],  # Yellow-Green
@@ -1627,8 +1588,8 @@ with tab5:
             <div class="legend-item">
                 <div class="legend-color" style="background-color: rgb(255, 140, 0);"></div>
                 <span>High</span>
-                                    </div>
-                                    <div class="legend-item">
+            </div>
+            <div class="legend-item">
                 <div class="legend-color" style="background-color: rgb(220, 20, 60);"></div>
                 <span>Very High</span>
             </div>
