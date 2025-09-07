@@ -977,7 +977,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         corr = numeric_data.corr()
 
         # Plot the heatmap
-        fig, ax = plt.subforms(figsize=(12, 10))
+        plt.subplots(figsize=(12, 10))
         sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
                     annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
         plt.xticks(rotation=45, ha='right')
