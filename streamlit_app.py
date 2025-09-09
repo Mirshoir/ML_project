@@ -13,7 +13,8 @@ from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_m
 import shap
 import geopandas as gpd
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import rasterio
 from rasterio.plot import show
 from rasterio.mask import mask
@@ -27,6 +28,8 @@ from matplotlib.colors import ListedColormap
 import zipfile
 import glob
 import pyproj
+import cv2
+from sklearn.metrics import classification_report, cohen_kappa_score, roc_curve, auc
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -231,11 +234,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Create tabs
-tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab0, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🛠️ Data Processing",
     "📊 Data & Features",
     "🤖 Model Comparison",
     "🌊 CNN Architecture",
+    "🧠 LeNet Implementation",
     "📈 Performance Results",
     "🗺️ Susceptibility Map"
 ])
@@ -249,6 +253,10 @@ if 'model_results' not in st.session_state:
     st.session_state['model_results'] = None
 if 'cnn_model' not in st.session_state:
     st.session_state['cnn_model'] = None
+if 'lenet_model' not in st.session_state:
+    st.session_state['lenet_model'] = None
+if 'lenet_history' not in st.session_state:
+    st.session_state['lenet_history'] = None
 if 'label_column' not in st.session_state:
     st.session_state['label_column'] = 'Label'
 if 'raster_files' not in st.session_state:
@@ -262,6 +270,10 @@ if 'processing_complete' not in st.session_state:
     st.session_state['processing_complete'] = False
 if 'composite_raster_path' not in st.session_state:
     st.session_state['composite_raster_path'] = None
+if 'lenet_data_loaded' not in st.session_state:
+    st.session_state['lenet_data_loaded'] = False
+if 'lenet_trained' not in st.session_state:
+    st.session_state['lenet_trained'] = False
 
 
 # Data Processing Functions
@@ -553,6 +565,97 @@ def generate_susceptibility_raster(points_data, model_features, flood_prob_col, 
     except Exception as e:
         st.error(f"Raster generation failed: {str(e)}")
         return False
+
+
+# LeNet CNN Implementation
+def create_lenet_model(input_shape):
+    """Create LeNet CNN model architecture"""
+    model = Sequential()
+    
+    # Conv Layer 1
+    model.add(Conv2D(filters=6, kernel_size=5, strides=1, activation='relu', 
+                     input_shape=input_shape))
+    model.add(MaxPooling2D(pool_size=2, strides=2))
+    model.add(Dropout(0.4))
+    
+    # Conv Layer 2
+    model.add(Conv2D(filters=16, kernel_size=5, strides=1, activation='relu'))
+    model.add(MaxPooling2D(pool_size=2, strides=2))
+    model.add(Dropout(0.4))
+    
+    # Flatten
+    model.add(Flatten())
+    
+    # Fully Connected Layers
+    model.add(Dense(units=120, activation='relu'))
+    model.add(Dropout(0.4))
+    model.add(Dense(units=84, activation='relu'))
+    model.add(Dropout(0.4))
+    
+    # Output Layer
+    model.add(Dense(units=1, activation='sigmoid'))
+    
+    return model
+
+
+def load_lenet_data(data_path, img_size=23):
+    """Load data for LeNet CNN model"""
+    categories = ["NotFlooded", "Flooded"]
+    
+    # Initialize feature lists
+    DEM, Slope, TWI, DTRoad, DTRiver, CN, Rain, Aspect, Curve, Freq, DTDrainage = ([] for _ in range(11))
+    y = []
+    
+    predictive_features = [DEM, Slope, TWI, DTRoad, DTRiver, CN, Rain, Aspect, Curve, Freq, DTDrainage]
+    
+    # Load data
+    for i in range(len(predictive_features)):
+        st.write(f"Reading feature band: {i+1}")
+        for category in categories:
+            path = os.path.join(data_path, category)
+            class_num = categories.index(category)
+            for img in os.listdir(path):
+                try:
+                    img_open = rasterio.open(os.path.join(path, img))
+                    img_array = img_open.read(i+1)  # band index starts at 1
+                    
+                    # Resize if needed
+                    if img_array.shape != (img_size, img_size):
+                        img_array = cv2.resize(img_array, (img_size, img_size))
+                    
+                    predictive_features[i].append(img_array)
+                    
+                    if i == 0:  # only once per image
+                        y.append(class_num)
+                except Exception as e:
+                    st.warning(f"Error reading {img}: {e}")
+                    pass
+    
+    # Convert to numpy arrays
+    DEM_array = np.array(DEM).reshape(-1, img_size, img_size, 1)
+    Slope_array = np.array(Slope).reshape(-1, img_size, img_size, 1)
+    TWI_array = np.array(TWI).reshape(-1, img_size, img_size, 1)
+    DTRoad_array = np.array(DTRoad).reshape(-1, img_size, img_size, 1)
+    DTRiver_array = np.array(DTRiver).reshape(-1, img_size, img_size, 1)
+    CN_array = np.array(CN).reshape(-1, img_size, img_size, 1)
+    Rain_array = np.array(Rain).reshape(-1, img_size, img_size, 1)
+    Aspect_array = np.array(Aspect).reshape(-1, img_size, img_size, 1)
+    Curve_array = np.array(Curve).reshape(-1, img_size, img_size, 1)
+    Freq_array = np.array(Freq).reshape(-1, img_size, img_size, 1)
+    DTDrainage_array = np.array(DTDrainage).reshape(-1, img_size, img_size, 1)
+    
+    # Stack features into one array (last axis = channels)
+    X_array = np.concatenate([
+        DEM_array, Slope_array, TWI_array, DTRoad_array, DTRiver_array,
+        CN_array, Rain_array, Aspect_array, Curve_array, Freq_array, DTDrainage_array
+    ], axis=-1)
+    
+    y_array = np.array(y)
+    
+    st.write(f"Final X shape: {X_array.shape}")
+    st.write(f"Final y shape: {y_array.shape}")
+    
+    return X_array, y_array
 
 
 # Data Processing Tab
@@ -1294,8 +1397,186 @@ _________________________________________________________________</pre>
             </div>
             """, unsafe_allow_html=True)
 
-# Performance Results Tab
+# LeNet Implementation Tab
 with tab4:
+    st.markdown('<div class="subheader">LeNet CNN Implementation</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="info-box">
+        <h3>LeNet Architecture for Flood Prediction</h3>
+        <p>The LeNet architecture is a classic CNN model that has been adapted for flood susceptibility mapping using 
+        multi-band raster data. This implementation uses 11 input bands representing different predictive features.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Check if data is available
+    if not st.session_state.get('processing_complete', False):
+        st.warning("Please process data in the 'Data Processing' tab first to generate the required raster data.")
+        st.stop()
+    
+    # Load data for LeNet
+    if not st.session_state['lenet_data_loaded']:
+        if st.button("Load Data for LeNet Model"):
+            with st.spinner("Loading raster data for LeNet model..."):
+                try:
+                    # Get the path to the processed data
+                    output_dir = tempfile.gettempdir()  # This should be the directory where data was processed
+                    data_path = os.path.join(output_dir, "Predictive_features")
+                    
+                    # Load the data
+                    X_array, y_array = load_lenet_data(data_path)
+                    
+                    # Store in session state
+                    st.session_state['lenet_X'] = X_array
+                    st.session_state['lenet_y'] = y_array
+                    st.session_state['lenet_data_loaded'] = True
+                    
+                    st.success("Data loaded successfully!")
+                    
+                    # Show data statistics
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Number of samples", X_array.shape[0])
+                    with col2:
+                        st.metric("Input shape", f"{X_array.shape[1:]} (H, W, Channels)")
+                        
+                    # Show class distribution
+                    class_counts = np.bincount(y_array)
+                    fig = px.pie(values=class_counts, names=['Not Flooded', 'Flooded'],
+                                title='Class Distribution in LeNet Dataset')
+                    st.plotly_chart(fig)
+                    
+                except Exception as e:
+                    st.error(f"Error loading data: {str(e)}")
+    else:
+        st.success("Data already loaded for LeNet model!")
+        X_array = st.session_state['lenet_X']
+        y_array = st.session_state['lenet_y']
+    
+    # Train/test split
+    if st.session_state['lenet_data_loaded'] and not st.session_state['lenet_trained']:
+        if st.button("Train LeNet Model"):
+            with st.spinner("Training LeNet model. This may take several minutes..."):
+                try:
+                    # Split the data
+                    x_train, x_test, y_train, y_test = train_test_split(
+                        X_array, y_array, test_size=0.2, random_state=42
+                    )
+                    
+                    # Create and compile the model
+                    model = create_lenet_model((23, 23, 11))
+                    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+                    
+                    # Callbacks
+                    checkpoint = ModelCheckpoint("LeNet.h5", monitor='val_loss', verbose=1,
+                                                save_best_only=True, mode='auto')
+                    early = EarlyStopping(monitor='val_loss', patience=20, verbose=1, mode='auto')
+                    
+                    # Train the model
+                    history = model.fit(
+                        x_train, y_train,
+                        batch_size=32, epochs=100,
+                        validation_split=0.25,
+                        callbacks=[checkpoint, early],
+                        verbose=1
+                    )
+                    
+                    # Store model and history
+                    st.session_state['lenet_model'] = model
+                    st.session_state['lenet_history'] = history
+                    st.session_state['lenet_x_test'] = x_test
+                    st.session_state['lenet_y_test'] = y_test
+                    st.session_state['lenet_trained'] = True
+                    
+                    st.success("LeNet model trained successfully!")
+                    
+                except Exception as e:
+                    st.error(f"Error training model: {str(e)}")
+    
+    # Show training results if available
+    if st.session_state['lenet_trained']:
+        st.subheader("LeNet Training Results")
+        
+        # Get history
+        history = st.session_state['lenet_history']
+        x_test = st.session_state['lenet_x_test']
+        y_test = st.session_state['lenet_y_test']
+        model = st.session_state['lenet_model']
+        
+        # Plot training history
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+        
+        # Plot loss
+        ax1.plot(history.history['loss'], label='Training Loss')
+        ax1.plot(history.history['val_loss'], label='Validation Loss')
+        ax1.set_title('Model Loss')
+        ax1.set_xlabel('Epoch')
+        ax1.set_ylabel('Loss')
+        ax1.legend()
+        
+        # Plot accuracy
+        ax2.plot(history.history['accuracy'], label='Training Accuracy')
+        ax2.plot(history.history['val_accuracy'], label='Validation Accuracy')
+        ax2.set_title('Model Accuracy')
+        ax2.set_xlabel('Epoch')
+        ax2.set_ylabel('Accuracy')
+        ax2.legend()
+        
+        plt.tight_layout()
+        st.pyplot(fig)
+        
+        # Evaluate model
+        st.subheader("Model Evaluation")
+        test_loss, test_acc = model.evaluate(x_test, y_test, verbose=0)
+        st.metric("Test Accuracy", f"{test_acc*100:.2f}%")
+        st.metric("Test Loss", f"{test_loss:.4f}")
+        
+        # Predictions
+        y_probs = model.predict(x_test).ravel()
+        y_pred = (y_probs >= 0.5).astype(int)
+        
+        # Confusion Matrix
+        cm = confusion_matrix(y_test, y_pred)
+        fig = px.imshow(cm, text_auto=True,
+                        labels=dict(x="Predicted", y="Actual", color="Count"),
+                        x=['Not Flooded', 'Flooded'],
+                        y=['Not Flooded', 'Flooded'],
+                        title="Confusion Matrix",
+                        color_continuous_scale='Blues')
+        st.plotly_chart(fig)
+        
+        # Classification report
+        st.subheader("Classification Report")
+        report = classification_report(y_test, y_pred, target_names=['Not Flooded', 'Flooded'], output_dict=True)
+        report_df = pd.DataFrame(report).transpose()
+        st.dataframe(report_df)
+        
+        # ROC Curve
+        fpr, tpr, thresholds = roc_curve(y_test, y_probs)
+        roc_auc = auc(fpr, tpr)
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines', name=f'ROC curve (AUC = {roc_auc:.2f})'))
+        fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Random', line=dict(dash='dash')))
+        fig.update_layout(
+            title='Receiver Operating Characteristic (ROC) Curve',
+            xaxis_title='False Positive Rate',
+            yaxis_title='True Positive Rate',
+            width=600, height=600
+        )
+        st.plotly_chart(fig)
+        
+        # Additional metrics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Cohen's Kappa", f"{cohen_kappa_score(y_test, y_pred):.3f}")
+        with col2:
+            st.metric("AUC Score", f"{roc_auc:.3f}")
+        with col3:
+            st.metric("F1 Score", f"{f1_score(y_test, y_pred):.3f}")
+
+# Performance Results Tab
+with tab5:
     st.markdown('<div class="subheader">Performance Results: Small Dataset Advantage</div>', unsafe_allow_html=True)
 
     if st.session_state['model_results'] is not None:
@@ -1462,7 +1743,7 @@ with tab4:
             st.markdown("#### CNN")
             cnn_cm = model_results['Convolutional Neural Network']['confusion_matrix']
             fig = px.imshow(cnn_cm, text_auto=True,
-                            labels=dict(x="Predicted", y="Actual", color="Count"),
+                            labels=dict(x="Predicted", y="Actual', color='Count"),
                             x=['Non-Flood', 'Flood'],
                             y=['Non-Flood', 'Flood'],
                             color_continuous_scale='Blues')
@@ -1471,7 +1752,7 @@ with tab4:
         st.warning("Please train models in the 'Model Comparison' tab first")
 
 # Susceptibility Map Tab
-with tab5:
+with tab6:
     st.markdown('<div class="subheader">Flood Susceptibility Map</div>', unsafe_allow_html=True)
 
     if st.session_state['points_data'] is not None and st.session_state['model_results'] is not None:
