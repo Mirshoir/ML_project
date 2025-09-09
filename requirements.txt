@@ -5,7 +5,7 @@ matplotlib>=3.7.0
 seaborn>=0.12.2
 plotly>=5.18.0
 shap>=0.44.1
-geocube
+geocube>=0.5.0
 
 # Geospatial processing
 geopandas>=0.14.3
@@ -14,6 +14,7 @@ contextily>=1.4.0
 pyproj>=3.6.0
 descartes>=1.1.0
 pyarrow>=14.0.2
+fiona>=1.9.5
 # GDAL is provided by apt (python3-gdal), do not install via pip
 
 # Machine learning and deep learning
@@ -21,6 +22,16 @@ scikit-learn>=1.3.0
 tensorflow>=2.13.0
 pandas>=2.0.3
 joblib>=1.3.2
-cv2
+keras>=2.13.1
+
 # Image processing
 Pillow>=10.0.0
+opencv-python>=4.8.1
+
+# Additional utilities
+pydeck>=0.8.1b0
+shapely>=2.0.2
+tempfile>=1.0.0
+warnings>=1.0.0
+zipfile>=1.0.0
+glob2>=0.7
