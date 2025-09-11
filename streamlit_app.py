@@ -1752,8 +1752,11 @@ with tab5:
         st.warning("Please train models in the 'Model Comparison' tab first")
 
 # Susceptibility Map Tab
+# Susceptibility Map Tab
 with tab6:
     st.markdown('<div class="subheader">Flood Susceptibility Map</div>', unsafe_allow_html=True)
+
+    import leafmap.foliumap as leafmap
 
     if st.session_state['points_data'] is not None and st.session_state['model_results'] is not None:
         points_data = st.session_state['points_data']
@@ -1762,8 +1765,7 @@ with tab6:
         model_features = st.session_state['model_features']
 
         # Select model
-        model_options = list(model_results.keys())
-        model_options = [m for m in model_options if m != "data_splits"]
+        model_options = [m for m in model_results.keys() if m != "data_splits"]
         selected_model = st.selectbox("Select Model for Prediction", model_options, index=0)
 
         # Prepare data
@@ -1772,6 +1774,41 @@ with tab6:
         if "Convolutional" not in selected_model:
             model = model_results[selected_model]['model']
             points_data['flood_prob'] = model.predict_proba(X)[:, 1]
+
+            # Generate susceptibility raster
+            output_tif = os.path.join(tempfile.gettempdir(), "susceptibility_map.tif")
+            success = generate_susceptibility_raster(points_data, model_features, "flood_prob", output_tif)
+
+            if success:
+                # Create interactive map
+                m = leafmap.Map(center=[points_data.geometry.y.mean(), points_data.geometry.x.mean()], zoom=12)
+
+                # Add basemap (satellite + labels)
+                m.add_basemap("HYBRID")
+
+                # Add raster overlay
+                m.add_raster(
+                    output_tif,
+                    colormap="Blues",  # Flood depth/severity in blue
+                    opacity=0.5,
+                    layer_name="Flood Susceptibility"
+                )
+
+                # Custom legend
+                m.add_legend(
+                    title="Flood Susceptibility",
+                    labels=["Low", "Moderate", "High"],
+                    colors=["#f7fbff", "#6baed6", "#08306b"]
+                )
+
+                # Show map in Streamlit
+                m.to_streamlit(height=600)
+
+            else:
+                st.error("Failed to generate susceptibility raster")
+        else:
+            st.warning("CNN predictions not supported for this visualization yet")
+
         else:
             # Simulated probabilities for CNN
             points_data['flood_prob'] = np.random.random(len(points_data))
