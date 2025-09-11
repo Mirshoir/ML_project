@@ -1,6 +1,7 @@
 shap>=0.44.1
 numba>=0.58.0
 llvmlite>=0.41.0
+leafmap>=0.32.0
 
 streamlit>=1.32.0
 pandas>=2.1.0
