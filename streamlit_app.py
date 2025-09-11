@@ -1806,8 +1806,7 @@ with tab6:
 
             else:
                 st.error("Failed to generate susceptibility raster")
-        else:
-            st.warning("CNN predictions not supported for this visualization yet")
+        
 
         else:
             # Simulated probabilities for CNN
