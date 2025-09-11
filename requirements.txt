@@ -32,10 +32,9 @@ opencv-python-headless==4.10.0.84
 psutil==5.9.0
 
 # =====================
-# Optional / Deployment Helpers
+# Deployment helpers
 # =====================
-Fiona==1.9.4       # geopandas dependency, pinned for stability
-GDAL==3.7.2        # required by rasterio/geopandas
-pyproj==3.6.1      # ensures CRS transformations work
+Fiona==1.9.4
+GDAL==3.7.2
 python-dateutil==2.9.2
-tqdm==4.66.1       # progress bars for geospatial ops
+tqdm==4.66.1
