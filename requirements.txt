@@ -23,3 +23,5 @@ geocube>=0.5.0
 leafmap>=0.32.0
 localtileserver>=0.7.0
 opencv-python-headless>=4.10.0.84
+psutil>=5.9.0
+
