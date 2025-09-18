@@ -1,4 +1,3 @@
-# Core packages
 streamlit>=1.22.0
 pandas>=1.5.0
 numpy>=1.23.0
@@ -7,27 +6,16 @@ seaborn>=0.12.0
 plotly>=5.11.0
 scikit-learn>=1.2.0
 shap>=0.41.0
-
-# Geospatial
 geopandas>=0.12.0
-pyproj>=3.4.0
-geocube>=0.3.0
+tensorflow>=2.11.0
 rasterio>=1.3.0
 rio-tiler>=3.1.0
 folium>=0.17.1
-leafmap>=0.18.0
-
-# Machine Learning / Deep Learning
-tensorflow>=2.11.0
-
-# Visualization
+leafmap[raster]>=0.18.0
 pydeck>=0.8.0
-plotly>=5.11.0
-
-# Image processing
+geocube>=0.3.0
 opencv-python-headless>=4.6.0
-
-# Optional (ensures raster support in leafmap works fully)
+pyproj>=3.4.0
 tqdm>=4.65.0
 requests>=2.31.0
 Pillow>=10.0.0
