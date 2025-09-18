@@ -1755,6 +1755,7 @@ with tab5:
 # Susceptibility Map Tab
 # Susceptibility Map Tab
     # Susceptibility Map Tab
+    # Susceptibility Map Tab
     with tab6:
         st.markdown('<div class="subheader">Flood Susceptibility Map</div>', unsafe_allow_html=True)
 
@@ -1774,31 +1775,25 @@ with tab5:
                 model = model_results[selected_model]['model']
                 points_data['flood_prob'] = model.predict_proba(X)[:, 1]
 
-
             # Categorize hazard levels
             def categorize_hazard(prob):
-                if prob < 0.2:
-                    return "Very Low"
-                elif prob < 0.4:
-                    return "Low"
-                elif prob < 0.6:
-                    return "Moderate"
-                elif prob < 0.8:
-                    return "High"
-                else:
-                    return "Very High"
-
+                if prob < 0.2: return "Very Low"
+                elif prob < 0.4: return "Low"
+                elif prob < 0.6: return "Moderate"
+                elif prob < 0.8: return "High"
+                else: return "Very High"
 
             points_data["Hazard_Level"] = points_data["flood_prob"].apply(categorize_hazard)
 
             # Assign fill colors for PyDeck
-            points_data["fill_color"] = points_data["Hazard_Level"].map({
+            color_map = {
                 "Very Low": [237, 248, 251, 150],
                 "Low": [178, 226, 226, 150],
                 "Moderate": [102, 194, 164, 150],
                 "High": [44, 162, 95, 180],
                 "Very High": [0, 109, 44, 200]
-            })
+            }
+            points_data["fill_color"] = points_data["Hazard_Level"].map(color_map)
 
             # PyDeck layer
             layer = pdk.Layer(
@@ -1822,6 +1817,39 @@ with tab5:
             )
 
             st.pydeck_chart(r)
+
+            # Add legend manually with HTML/CSS
+            st.markdown(
+                """
+                <div style="
+                    position: relative;
+                    background: white;
+                    padding: 10px;
+                    border-radius: 5px;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+                    width: 160px;
+                    margin-top: -100px;
+                ">
+                    <b>Hazard Levels</b><br>
+                    <div style="display:flex;align-items:center;">
+                        <div style="width:20px;height:20px;background:rgb(237,248,251);margin-right:8px;"></div>Very Low
+                    </div>
+                    <div style="display:flex;align-items:center;">
+                        <div style="width:20px;height:20px;background:rgb(178,226,226);margin-right:8px;"></div>Low
+                    </div>
+                    <div style="display:flex;align-items:center;">
+                        <div style="width:20px;height:20px;background:rgb(102,194,164);margin-right:8px;"></div>Moderate
+                    </div>
+                    <div style="display:flex;align-items:center;">
+                        <div style="width:20px;height:20px;background:rgb(44,162,95);margin-right:8px;"></div>High
+                    </div>
+                    <div style="display:flex;align-items:center;">
+                        <div style="width:20px;height:20px;background:rgb(0,109,44);margin-right:8px;"></div>Very High
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
             # Generate susceptibility raster
             output_tif = os.path.join(tempfile.gettempdir(), "susceptibility_map.tif")
