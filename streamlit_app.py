@@ -30,6 +30,7 @@ import glob
 import pyproj
 import cv2
 from sklearn.metrics import classification_report, cohen_kappa_score, roc_curve, auc
+import leafmap.foliumap as leafmap
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
