@@ -1775,13 +1775,20 @@ with tab5:
                 model = model_results[selected_model]['model']
                 points_data['flood_prob'] = model.predict_proba(X)[:, 1]
 
+
             # Categorize hazard levels
             def categorize_hazard(prob):
-                if prob < 0.2: return "Very Low"
-                elif prob < 0.4: return "Low"
-                elif prob < 0.6: return "Moderate"
-                elif prob < 0.8: return "High"
-                else: return "Very High"
+                if prob < 0.2:
+                    return "Very Low"
+                elif prob < 0.4:
+                    return "Low"
+                elif prob < 0.6:
+                    return "Moderate"
+                elif prob < 0.8:
+                    return "High"
+                else:
+                    return "Very High"
+
 
             points_data["Hazard_Level"] = points_data["flood_prob"].apply(categorize_hazard)
 
@@ -1851,9 +1858,12 @@ with tab5:
                 unsafe_allow_html=True
             )
 
-            # Generate susceptibility raster
-            output_tif = os.path.join(tempfile.gettempdir(), "susceptibility_map.tif")
-            success = generate_susceptibility_raster(points_data, model_features, "flood_prob", output_tif)
+            if "flood_prob" in points_data.columns:
+
+
+                # Generate susceptibility raster
+                output_tif = os.path.join(tempfile.gettempdir(), "susceptibility_map.tif")
+                success = generate_susceptibility_raster(points_data, model_features, "flood_prob", output_tif)
 
             if success:
                 # Create interactive map
@@ -2095,7 +2105,7 @@ with tab5:
         # Download results
         st.subheader("Download Results")
         if st.button("Export Susceptibility Map Data"):
-            # Create download version without geometry column
+            # Create a download version without geometry column
             if isinstance(gdf, gpd.GeoDataFrame):
                 download_data = gdf.drop(columns=['geometry', 'color']) if 'geometry' in gdf.columns else gdf.copy()
             else:
