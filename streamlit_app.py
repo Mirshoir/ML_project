@@ -988,7 +988,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
     points_data = st.session_state['points_data']
     if points_data.crs is None:
         points_data.set_crs(epsg=4326, inplace=True)
-    
+
 
     label_col = st.session_state['label_column']
 
@@ -1878,8 +1878,19 @@ with tab5:
 
             if success:
                 # Create interactive map
+                # Fix: use centroids of polygons for map center
                 centroid = points_data.geometry.centroid
-                m = leafmap.Map(center=[centroid.y.mean(), centroid.x.mean()], zoom=12)
+
+                m = leafmap.Map(
+                    center=[centroid.y.mean(), centroid.x.mean()],
+                    zoom=12
+                )
+
+                # Add your hazard polygons to the map
+                m.add_gdf(points_data, layer_name="Hazard Map")
+
+                # Show the map inside Streamlit
+                st.write(m.to_streamlit(height=600))
 
                 # Add basemap (satellite + labels)
                 m.add_basemap("HYBRID")
