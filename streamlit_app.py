@@ -1753,70 +1753,70 @@ with tab5:
 
 # Susceptibility Map Tab
 # Susceptibility Map Tab
-with tab6:
-    st.markdown('<div class="subheader">Flood Susceptibility Map</div>', unsafe_allow_html=True)
-
-    if st.session_state['points_data'] is not None and st.session_state['model_results'] is not None:
-        points_data = st.session_state['points_data']
-        model_results = st.session_state['model_results']
-        label_col = st.session_state['label_column']
-        model_features = st.session_state['model_features']
-
-        # Select model
-        model_options = [m for m in model_results.keys() if m != "data_splits"]
-        selected_model = st.selectbox("Select Model for Prediction", model_options, index=0)
-
-        # Predict flood probability
-        X = points_data[model_features]
-        if "Convolutional" not in selected_model:
-            model = model_results[selected_model]['model']
-            points_data['flood_prob'] = model.predict_proba(X)[:, 1]
-
-        # Categorize hazard levels
-        def categorize_hazard(prob):
-            if prob < 0.2: return "Very Low"
-            elif prob < 0.4: return "Low"
-            elif prob < 0.6: return "Moderate"
-            elif prob < 0.8: return "High"
-            else: return "Very High"
-
-        points_data["Hazard_Level"] = points_data["flood_prob"].apply(categorize_hazard)
-
-        # Convert to GeoJSON for mapping
-        geojson_data = points_data.to_json()
-
-        # Use PyDeck for world map
-        color_map = {
-            "Very Low": [237, 248, 251, 150],   # light blue
-            "Low": [178, 226, 226, 150],
-            "Moderate": [102, 194, 164, 150],
-            "High": [44, 162, 95, 180],
-            "Very High": [0, 109, 44, 200]      # dark green
-        }
-
-        # Create layer
-        layer = pdk.Layer(
-            "GeoJsonLayer",
-            data=geojson_data,
-            get_fill_color="properties.Hazard_Level.map(@color_map)",
-            get_line_color=[80, 80, 80],
-            stroked=True,
-            filled=True,
-            opacity=0.6,
-        )
-
-        # World view (centered globally)
-        view_state = pdk.ViewState(latitude=20, longitude=0, zoom=1.5)
-
-        # Render deck.gl map
-        r = pdk.Deck(
-            layers=[layer],
-            initial_view_state=view_state,
-            map_style="mapbox://styles/mapbox/light-v9",
-            parameters={"culling": True}
-        )
-
-        st.pydeck_chart(r)
+# Susceptibility Map Tab
+    with tab6:
+        st.markdown('<div class="subheader">Flood Susceptibility Map</div>', unsafe_allow_html=True)
+    
+        if st.session_state['points_data'] is not None and st.session_state['model_results'] is not None:
+            points_data = st.session_state['points_data']
+            model_results = st.session_state['model_results']
+            label_col = st.session_state['label_column']
+            model_features = st.session_state['model_features']
+    
+            # Select model
+            model_options = [m for m in model_results.keys() if m != "data_splits"]
+            selected_model = st.selectbox("Select Model for Prediction", model_options, index=0)
+    
+            # Predict flood probability
+            X = points_data[model_features]
+            if "Convolutional" not in selected_model:
+                model = model_results[selected_model]['model']
+                points_data['flood_prob'] = model.predict_proba(X)[:, 1]
+    
+            # Categorize hazard levels
+            def categorize_hazard(prob):
+                if prob < 0.2: return "Very Low"
+                elif prob < 0.4: return "Low"
+                elif prob < 0.6: return "Moderate"
+                elif prob < 0.8: return "High"
+                else: return "Very High"
+    
+            points_data["Hazard_Level"] = points_data["flood_prob"].apply(categorize_hazard)
+    
+            # Convert to GeoJSON for mapping
+            geojson_data = points_data.to_json()
+    
+            # Define color map for hazard categories
+            color_map = {
+                "Very Low": [237, 248, 251, 150],   # light blue
+                "Low": [178, 226, 226, 150],
+                "Moderate": [102, 194, 164, 150],
+                "High": [44, 162, 95, 180],
+                "Very High": [0, 109, 44, 200]      # dark green
+            }
+    
+            # Create map layer
+            layer = pdk.Layer(
+                "GeoJsonLayer",
+                data=geojson_data,
+                get_fill_color="properties.Hazard_Level.map(@color_map)",
+                get_line_color=[80, 80, 80],
+                stroked=True,
+                filled=True,
+                opacity=0.6,
+            )
+    
+            # World view
+            view_state = pdk.ViewState(latitude=20, longitude=0, zoom=1.5)
+    
+            # Render deck.gl map
+            r = pdk.Deck(
+                layers=[layer],
+                initial_view_state=view_state,
+                map_style="mapbox://styles/mapbox/light-v9",
+            )
+    
+            st.pydeck_chart(r)
 
 
             # Generate susceptibility raster
