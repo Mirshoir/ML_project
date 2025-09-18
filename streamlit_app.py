@@ -986,6 +986,10 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         st.session_state['label_column'] = 'Label'
 
     points_data = st.session_state['points_data']
+    if points_data.crs is None:
+        points_data.set_crs(epsg=4326, inplace=True)
+    
+
     label_col = st.session_state['label_column']
 
     # Check for null values
@@ -1112,6 +1116,10 @@ with tab2:
     if st.session_state['points_data'] is not None and st.session_state['label_column'] in st.session_state[
         'points_data'].columns:
         points_data = st.session_state['points_data']
+
+        if points_data.crs is None:
+            points_data.set_crs(epsg=4326, inplace=True)
+
         label_col = st.session_state['label_column']
 
         # Prepare data for modeling
@@ -1761,6 +1769,9 @@ with tab5:
 
         if st.session_state['points_data'] is not None and st.session_state['model_results'] is not None:
             points_data = st.session_state['points_data']
+            if points_data.crs is None:
+                points_data.set_crs(epsg=4326, inplace=True)
+
             model_results = st.session_state['model_results']
             label_col = st.session_state['label_column']
             model_features = st.session_state['model_features']
@@ -1867,7 +1878,8 @@ with tab5:
 
             if success:
                 # Create interactive map
-                m = leafmap.Map(center=[points_data.geometry.y.mean(), points_data.geometry.x.mean()], zoom=12)
+                centroid = points_data.geometry.centroid
+                m = leafmap.Map(center=[centroid.y.mean(), centroid.x.mean()], zoom=12)
 
                 # Add basemap (satellite + labels)
                 m.add_basemap("HYBRID")
