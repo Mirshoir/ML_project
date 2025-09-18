@@ -1754,6 +1754,7 @@ with tab5:
 # Susceptibility Map Tab
 # Susceptibility Map Tab
 # Susceptibility Map Tab
+    # Susceptibility Map Tab
     with tab6:
         st.markdown('<div class="subheader">Flood Susceptibility Map</div>', unsafe_allow_html=True)
 
@@ -1773,33 +1774,37 @@ with tab5:
                 model = model_results[selected_model]['model']
                 points_data['flood_prob'] = model.predict_proba(X)[:, 1]
 
+
             # Categorize hazard levels
             def categorize_hazard(prob):
-                if prob < 0.2: return "Very Low"
-                elif prob < 0.4: return "Low"
-                elif prob < 0.6: return "Moderate"
-                elif prob < 0.8: return "High"
-                else: return "Very High"
+                if prob < 0.2:
+                    return "Very Low"
+                elif prob < 0.4:
+                    return "Low"
+                elif prob < 0.6:
+                    return "Moderate"
+                elif prob < 0.8:
+                    return "High"
+                else:
+                    return "Very High"
+
 
             points_data["Hazard_Level"] = points_data["flood_prob"].apply(categorize_hazard)
 
-            # Convert to GeoJSON for mapping
-            geojson_data = points_data.to_json()
-
-            # Define color map for hazard categories
-            color_map = {
-                "Very Low": [237, 248, 251, 150],   # light blue
+            # Assign fill colors for PyDeck
+            points_data["fill_color"] = points_data["Hazard_Level"].map({
+                "Very Low": [237, 248, 251, 150],
                 "Low": [178, 226, 226, 150],
                 "Moderate": [102, 194, 164, 150],
                 "High": [44, 162, 95, 180],
-                "Very High": [0, 109, 44, 200]      # dark green
-            }
+                "Very High": [0, 109, 44, 200]
+            })
 
-            # Create map layer
+            # PyDeck layer
             layer = pdk.Layer(
                 "GeoJsonLayer",
-                data=geojson_data,
-                get_fill_color="properties.Hazard_Level.map(@color_map)",
+                data=points_data,
+                get_fill_color="fill_color",
                 get_line_color=[80, 80, 80],
                 stroked=True,
                 filled=True,
@@ -1809,7 +1814,7 @@ with tab5:
             # World view
             view_state = pdk.ViewState(latitude=20, longitude=0, zoom=1.5)
 
-            # Render deck.gl map
+            # Render map
             r = pdk.Deck(
                 layers=[layer],
                 initial_view_state=view_state,
@@ -1817,7 +1822,6 @@ with tab5:
             )
 
             st.pydeck_chart(r)
-
 
             # Generate susceptibility raster
             output_tif = os.path.join(tempfile.gettempdir(), "susceptibility_map.tif")
