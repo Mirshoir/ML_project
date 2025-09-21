@@ -425,9 +425,10 @@ def process_shapefile_and_raster(points_shp_path, composite_raster_path, buffer_
         divided_dir = os.path.join(output_dir, "divided")
         os.makedirs(divided_dir, exist_ok=True)
 
-        # Create directories for clipped rasters
-        flooded_dir = os.path.join(output_dir, "Predictive_features", "Flooded")
-        not_flooded_dir = os.path.join(output_dir, "Predictive_features", "NotFlooded")
+        # Create directories for clipped rasters - this is where we need to fix
+        predictive_features_dir = os.path.join(output_dir, "Predictive_features")
+        flooded_dir = os.path.join(predictive_features_dir, "Flooded")
+        not_flooded_dir = os.path.join(predictive_features_dir, "NotFlooded")
         os.makedirs(flooded_dir, exist_ok=True)
         os.makedirs(not_flooded_dir, exist_ok=True)
 
@@ -464,12 +465,12 @@ def process_shapefile_and_raster(points_shp_path, composite_raster_path, buffer_
         status_text.text("Processing complete!")
         progress_bar.empty()
 
-        return True, squares_path, divided_dir, flooded_dir, not_flooded_dir
+        return True, squares_path, divided_dir, predictive_features_dir, flooded_dir, not_flooded_dir
 
     except Exception as e:
         st.error(f"Error in processing: {str(e)}")
-        return False, None, None, None, None
-
+        return False, None, None, None, None, None
+    
 
 def train_models(X, y):
     """Train and evaluate machine learning models with 60-20-20 split"""
@@ -1425,23 +1426,32 @@ with tab4:
 
     # Load data for LeNet
     if not st.session_state['lenet_data_loaded']:
+        # In the LeNet tab, update the data loading part:
         if st.button("Load Data for LeNet Model"):
             with st.spinner("Loading raster data for LeNet model..."):
                 try:
-                    # Get the path to the processed data
-                    output_dir = tempfile.gettempdir()  # This should be the directory where data was processed
-                    data_path = os.path.join(output_dir, "Predictive_features")
+                    # Get the path to the processed data from session state
+                    if 'processed_data_dir' in st.session_state:
+                        output_dir = st.session_state['processed_data_dir']
+                        data_path = os.path.join(output_dir, "Predictive_features")
 
-                    # Load the data
-                    X_array, y_array = load_lenet_data(data_path)
+                        # Check if the directory exists
+                        if os.path.exists(data_path):
+                            # Load the data
+                            X_array, y_array = load_lenet_data(data_path)
 
-                    # Store in session state
-                    st.session_state['lenet_X'] = X_array
-                    st.session_state['lenet_y'] = y_array
-                    st.session_state['lenet_data_loaded'] = True
+                            # Store in session state
+                            st.session_state['lenet_X'] = X_array
+                            st.session_state['lenet_y'] = y_array
+                            st.session_state['lenet_data_loaded'] = True
+                            st.success("Data loaded successfully!")
+                        else:
+                            st.error("Predictive_features directory not found. Please process data first.")
+                    else:
+                        st.error("Processed data directory not found. Please process data first.")
 
-                    st.success("Data loaded successfully!")
-
+                except Exception as e:
+                    st.error(f"Error loading data: {str(e)}")
                     # Show data statistics
                     col1, col2 = st.columns(2)
                     with col1:
