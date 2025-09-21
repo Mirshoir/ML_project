@@ -1777,65 +1777,52 @@ with tab5:
             label_col = st.session_state['label_column']
             model_features = st.session_state['model_features']
 
-            # Select model
-            model_options = [m for m in model_results.keys() if m != "data_splits"]
-            selected_model = st.selectbox("Select Model for Prediction", model_options, index=0)
+            # Select trained model (skip CNN placeholder)
+            model_options = [m for m in model_results.keys() if
+                             m not in ["data_splits", "Convolutional Neural Network"]]
+            selected_model = st.selectbox("Select model for susceptibility mapping", model_options, index=0)
 
             # Predict flood probability
-            X = points_data[model_features]
-            if "Convolutional" not in selected_model:
-                model = model_results[selected_model]['model']
-                points_data['flood_prob'] = model.predict_proba(X)[:, 1]
+            model = model_results[selected_model]['model']
+            points_data['Flood_Probability'] = model.predict_proba(points_data[model_features])[:, 1]
 
-
-            # Categorize hazard levels
-            def categorize_hazard(prob):
-                if prob < 0.2:
-                    return "Very Low"
-                elif prob < 0.4:
-                    return "Low"
-                elif prob < 0.6:
-                    return "Moderate"
-                elif prob < 0.8:
-                    return "High"
-                else:
-                    return "Very High"
-
-
-            points_data["Hazard_Level"] = points_data["flood_prob"].apply(categorize_hazard)
-
-            # Assign fill colors for PyDeck
-            color_map = {
-                "Very Low": [237, 248, 251, 150],
-                "Low": [178, 226, 226, 150],
-                "Moderate": [102, 194, 164, 150],
-                "High": [44, 162, 95, 180],
-                "Very High": [0, 109, 44, 200]
-            }
-            points_data["fill_color"] = points_data["Hazard_Level"].map(color_map)
-
-            # PyDeck layer
-            layer = pdk.Layer(
-                "GeoJsonLayer",
-                data=points_data,
-                get_fill_color="fill_color",
-                get_line_color=[80, 80, 80],
-                stroked=True,
-                filled=True,
-                opacity=0.6,
+            # Assign categorical risk levels
+            points_data['Risk_Level'] = pd.cut(
+                points_data['Flood_Probability'],
+                bins=[0, 0.25, 0.5, 0.75, 1.0],
+                labels=["Low", "Moderate", "High", "Very High"]
             )
 
-            # World view
-            view_state = pdk.ViewState(latitude=20, longitude=0, zoom=1.5)
+            # Save susceptibility raster
+            raster_out = os.path.join(tempfile.gettempdir(), "susceptibility_map.tif")
+            success = generate_susceptibility_raster(points_data, model_features, 'Flood_Probability', raster_out)
 
-            # Render map
-            r = pdk.Deck(
-                layers=[layer],
-                initial_view_state=view_state,
-                map_style="mapbox://styles/mapbox/light-v9",
-            )
+            if success and os.path.exists(raster_out):
+                st.success("Flood susceptibility raster generated!")
 
-            st.pydeck_chart(r)
+                # Show raster overlay with colormap
+                m = leafmap.Map(center=[52.5, 13.4], zoom=11)
+                m.add_raster(
+                    raster_out,
+                    colormap="RdYlGn_r",  # Green=Low, Red=High
+                    layer_name="Flood Susceptibility"
+                )
+                m.to_streamlit(height=700)
+
+                # Legend explanation
+                st.markdown("""
+                <div class="legend-container">
+                    <h4>Risk Levels</h4>
+                    <div class="legend-item"><div class="legend-color" style="background:#006837"></div>Low</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#fec44f"></div>Moderate</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#f03b20"></div>High</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#bd0026"></div>Very High</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.error("Failed to generate susceptibility raster.")
+        else:
+            st.warning("Please process data and train models before generating the susceptibility map.")
 
             # Add legend manually with HTML/CSS
             st.markdown(
