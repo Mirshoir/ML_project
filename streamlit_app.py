@@ -1979,14 +1979,19 @@ with tab5:
 
         with col1:
             st.markdown("### Risk Level Distribution")
-            risk_counts = gdf['risk_level'].value_counts().sort_index()
-            fig = px.pie(risk_counts,
-                         names=risk_counts.index,
-                         values=risk_counts.values,
-                         hole=0.4,
-                         color=risk_counts.index,
-                         color_discrete_sequence=['#228B22', '#9ACD32', '#FFD700', '#FF8C00', '#DC143C'])
-            st.plotly_chart(fig, use_container_width=True)
+            if 'gdf' in locals() and 'risk_level' in gdf.columns:
+                risk_counts = gdf['risk_level'].value_counts().sort_index()
+                fig = px.pie(
+                    risk_counts,
+                    names=risk_counts.index,
+                    values=risk_counts.values,
+                    hole=0.4,
+                    color=risk_counts.index,
+                    color_discrete_sequence=['#228B22', '#9ACD32', '#FFD700', '#FF8C00', '#DC143C']
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Risk data not available. Please generate flood probabilities first.")
 
         with col2:
             st.markdown("### Risk Level by Location Type")
