@@ -1085,7 +1085,7 @@ maxUploadSize = 1000  # Size in MB (up to 2000MB/2GB)
         corr = numeric_data.corr()
 
         # Plot the heatmap
-        plt.subplots(figsize=(12, 10))
+        fig, ax = plt.subplots(figsize=(12, 10))
         sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
                     annot_kws={"size": 8}, cbar_kws={"shrink": 0.8})
         plt.xticks(rotation=45, ha='right')
@@ -1761,359 +1761,68 @@ with tab5:
         st.warning("Please train models in the 'Model Comparison' tab first")
 
 # Susceptibility Map Tab
-# Susceptibility Map Tab
-# Susceptibility Map Tab
-    # Susceptibility Map Tab
-    # Susceptibility Map Tab
-    with tab6:
-        st.markdown('<div class="subheader">Flood Susceptibility Map</div>', unsafe_allow_html=True)
+with tab6:
+    st.markdown('<div class="subheader">Flood Susceptibility Map</div>', unsafe_allow_html=True)
 
-        if st.session_state['points_data'] is not None and st.session_state['model_results'] is not None:
-            points_data = st.session_state['points_data']
-            if points_data.crs is None:
-                points_data.set_crs(epsg=4326, inplace=True)
+    if st.session_state['points_data'] is not None and st.session_state['model_results'] is not None:
+        points_data = st.session_state['points_data']
+        if points_data.crs is None:
+            points_data.set_crs(epsg=4326, inplace=True)
 
-            model_results = st.session_state['model_results']
-            label_col = st.session_state['label_column']
-            model_features = st.session_state['model_features']
+        model_results = st.session_state['model_results']
+        label_col = st.session_state['label_column']
+        model_features = st.session_state['model_features']
 
-            # Select trained model (skip CNN placeholder)
-            model_options = [m for m in model_results.keys() if
-                             m not in ["data_splits", "Convolutional Neural Network"]]
-            selected_model = st.selectbox("Select model for susceptibility mapping", model_options, index=0)
+        # Select trained model (skip CNN placeholder)
+        model_options = [m for m in model_results.keys() if m not in ["data_splits", "Convolutional Neural Network"]]
+        selected_model = st.selectbox("Select model for susceptibility mapping", model_options, index=0)
 
-            # Predict flood probability
-            model = model_results[selected_model]['model']
-            points_data['Flood_Probability'] = model.predict_proba(points_data[model_features])[:, 1]
+        # Predict flood probability
+        model = model_results[selected_model]['model']
+        points_data['Flood_Probability'] = model.predict_proba(points_data[model_features])[:, 1]
 
-            # Assign categorical risk levels
-            points_data['Risk_Level'] = pd.cut(
-                points_data['Flood_Probability'],
-                bins=[0, 0.25, 0.5, 0.75, 1.0],
-                labels=["Low", "Moderate", "High", "Very High"]
+        # Assign categorical risk levels
+        points_data['Risk_Level'] = pd.cut(
+            points_data['Flood_Probability'],
+            bins=[0, 0.25, 0.5, 0.75, 1.0],
+            labels=["Low", "Moderate", "High", "Very High"]
+        )
+
+        # Save susceptibility raster
+        raster_out = os.path.join(tempfile.gettempdir(), "susceptibility_map.tif")
+        success = generate_susceptibility_raster(points_data, model_features, 'Flood_Probability', raster_out)
+
+        if success and os.path.exists(raster_out):
+            st.success("Flood susceptibility raster generated!")
+
+            # Show raster overlay with colormap
+            m = leafmap.Map(center=[52.5, 13.4], zoom=11)
+            m.add_raster(
+                raster_out,
+                colormap="RdYlGn_r",  # Green=Low, Red=High
+                layer_name="Flood Susceptibility"
             )
+            m.to_streamlit(height=700)
 
-            # Save susceptibility raster
-            raster_out = os.path.join(tempfile.gettempdir(), "susceptibility_map.tif")
-            success = generate_susceptibility_raster(points_data, model_features, 'Flood_Probability', raster_out)
-
-            if success and os.path.exists(raster_out):
-                st.success("Flood susceptibility raster generated!")
-
-                # Show raster overlay with colormap
-                m = leafmap.Map(center=[52.5, 13.4], zoom=11)
-                m.add_raster(
-                    raster_out,
-                    colormap="RdYlGn_r",  # Green=Low, Red=High
-                    layer_name="Flood Susceptibility"
-                )
-                m.to_streamlit(height=700)
-
-                # Legend explanation
-                st.markdown("""
-                <div class="legend-container">
-                    <h4>Risk Levels</h4>
-                    <div class="legend-item"><div class="legend-color" style="background:#006837"></div>Low</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#fec44f"></div>Moderate</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#f03b20"></div>High</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#bd0026"></div>Very High</div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.error("Failed to generate susceptibility raster.")
+            # Legend explanation
+            st.markdown("""
+            <div class="legend-container">
+                <h4>Risk Levels</h4>
+                <div class="legend-item"><div class="legend-color" style="background:#006837"></div>Low</div>
+                <div class="legend-item"><div class="legend-color" style="background:#fec44f"></div>Moderate</div>
+                <div class="legend-item"><div class="legend-color" style="background:#f03b20"></div>High</div>
+                <div class="legend-item"><div class="legend-color" style="background:#bd0026"></div>Very High</div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.warning("Please process data and train models before generating the susceptibility map.")
-
-            if "flood_prob" in points_data.columns:
-
-
-                # Generate susceptibility raster
-                output_tif = os.path.join(tempfile.gettempdir(), "susceptibility_map.tif")
-                success = generate_susceptibility_raster(points_data, model_features, "flood_prob", output_tif)
-
-            if success:
-                # Create interactive map
-                # Fix: use centroids of polygons for map center
-                centroid = points_data.geometry.centroid
-
-                m = leafmap.Map(
-                    center=[centroid.y.mean(), centroid.x.mean()],
-                    zoom=12
-                )
-
-                # Add your hazard polygons to the map
-                m.add_gdf(points_data, layer_name="Hazard Map")
-
-                # Show the map inside Streamlit
-                st.write(m.to_streamlit(height=600))
-
-                # Add basemap (satellite + labels)
-                m.add_basemap("HYBRID")
-
-                # Add raster overlay
-                m.add_raster(
-                    output_tif,
-                    colormap="Blues",  # Flood depth/severity in blue
-                    opacity=0.5,
-                    layer_name="Flood Susceptibility"
-                )
-
-                # Custom legend
-                m.add_legend(
-                    title="Flood Susceptibility",
-                    labels=["Low", "Moderate", "High"],
-                    colors=["#f7fbff", "#6baed6", "#08306b"]
-                )
-
-                # Show map in Streamlit
-                m.to_streamlit(height=600)
-
-            else:
-                st.error("Failed to generate susceptibility raster")
-
-    if some_condition:
-
-        if another_condition:
-
-            st.success("Raster generated")
-
-        else:
-
-            st.error("Failed to generate susceptibility raster")
-
+            st.error("Failed to generate susceptibility raster.")
     else:
-
-        # Simulated probabilities for CNN
-
-        points_data['flood_prob'] = np.random.random(len(points_data))
-
-        # Create GeoDataFrame
-        gdf = points_data.copy()
-
-        # Ensure we have a valid CRS
-        if gdf.crs is None:
-            gdf = gdf.set_crs(epsg=4326)
-        elif gdf.crs != "EPSG:4326":
-            gdf = gdf.to_crs(epsg=4326)
-
-        # Add longitude and latitude columns
-        gdf['lon'] = gdf.geometry.x
-        gdf['lat'] = gdf.geometry.y
-
-        # Risk classification
-        gdf['risk_level'] = pd.cut(gdf['flood_prob'],
-                                   bins=[0, 0.2, 0.4, 0.6, 0.8, 1],
-                                   labels=['Very Low', 'Low', 'Moderate', 'High', 'Very High'])
-
-        # Create color mapping
-        risk_colors = {
-            'Very Low': [34, 139, 34, 180],  # Green
-            'Low': [154, 205, 50, 180],  # Yellow-Green
-            'Moderate': [255, 215, 0, 180],  # Yellow
-            'High': [255, 140, 0, 180],  # Orange
-            'Very High': [220, 20, 60, 180]  # Red
-        }
-
-        # Convert risk_level to string before mapping
-        gdf['risk_level_str'] = gdf['risk_level'].astype(str)
-        gdf['color'] = gdf['risk_level_str'].map(risk_colors)
-
-        # Create PyDeck map for point visualization
-        st.subheader("Flood Susceptibility Point Visualization")
-
-        # Calculate center for the map
-        avg_lat = gdf['lat'].mean()
-        avg_lon = gdf['lon'].mean()
-
-        # Create scatterplot layer
-        scatter_layer = pdk.Layer(
-            "ScatterplotLayer",
-            data=gdf,
-            get_position=['lon', 'lat'],
-            get_fill_color='color',
-            get_radius=50,
-            pickable=True,
-            opacity=0.8
-        )
-
-        # Create tooltip
-        tooltip = {
-            "html": "<b>Risk:</b> {risk_level}<br><b>Probability:</b> {flood_prob:.2f}",
-            "style": {
-                "backgroundColor": "steelblue",
-                "color": "white"
-            }
-        }
-
-        # Create deck
-        deck = pdk.Deck(
-            map_style='mapbox://styles/mapbox/light-v9',
-            initial_view_state=pdk.ViewState(
-                latitude=avg_lat,
-                longitude=avg_lon,
-                zoom=10,
-                pitch=45
-            ),
-            layers=[scatter_layer],
-            tooltip=tooltip
-        )
-
-        # Display the map
-        st.pydeck_chart(deck)
-
-        # Add custom legend
-        st.markdown("""
-        <div class="legend-container">
-            <h4>Risk Legend</h4>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(34, 139, 34);"></div>
-                <span>Very Low</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(154, 205, 50);"></div>
-                <span>Low</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(255, 215, 0);"></div>
-                <span>Moderate</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(255, 140, 0);"></div>
-                <span>High</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(220, 20, 60);"></div>
-                <span>Very High</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Add button to generate raster map
-        if st.button("Generate Susceptibility Raster Map"):
-            with st.spinner("Generating susceptibility raster. This may take a few minutes..."):
-                output_path = "Flood_susceptibility.tif"
-                if generate_susceptibility_raster(gdf, model_features, 'flood_prob', output_path):
-                    st.session_state['raster_path'] = output_path
-                    st.success("Raster map generated successfully!")
-
-        # Display raster if generated
-        if 'raster_path' in st.session_state and st.session_state['raster_path']:
-            st.subheader("Flood Susceptibility Raster Map")
-
-            # Classification parameters
-            classes = {
-                "Very low": (0, 0.2),
-                "Low": (0.2, 0.4),
-                "Moderate": (0.4, 0.6),
-                "High": (0.6, 0.8),
-                "Very high": (0.8, 1.0)
-            }
-            colors = ['#fee5d9', '#fcae91', '#fb6a4a', '#de2d26', '#a50f15']
-
-            # Plot raster
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                fig, ax = plt.subplots(figsize=(10, 8))
-                with rasterio.open(st.session_state['raster_path']) as src:
-                    data = src.read(1)
-                    # Apply classification
-                    classified = np.digitize(data, bins=[0.2, 0.4, 0.6, 0.8])
-                    cmap = ListedColormap(colors)
-                    im = ax.imshow(classified, cmap=cmap, vmin=0, vmax=4)
-                    plt.axis('off')
-                    st.pyplot(fig)
-
-            with col2:
-                st.markdown("""
-                <div class="raster-legend">
-                    <h4>Susceptibility Legend</h4>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: #fee5d9;"></div>
-                        <span>Very low</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: #fcae91;"></div>
-                        <span>Low</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: #fb6a4a;"></div>
-                        <span>Moderate</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: #de2d26;"></div>
-                        <span>High</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: #a50f15;"></div>
-                        <span>Very high</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                # Add scale bar explanation
-                st.markdown("""
-                <div style="margin-top: 20px;">
-                    <h4>Map Scale</h4>
-                    <p>0  3  6  12 Kilometers</p>
-                    <div style="display: flex; justify-content: space-between; width: 100%; margin-top: 5px;">
-                        <div style="height: 2px; background: black; width: 25%;"></div>
-                        <div style="height: 2px; background: black; width: 25%;"></div>
-                        <div style="height: 2px; background: black; width: 25%;"></div>
-                        <div style="height: 2px; background: black; width: 25%;"></div>
-                    </div>
-                </div>
-                """)
-
-        # Risk distribution
-        st.subheader("Risk Distribution")
-        col1, col2 = st.columns([1, 2])
-
-        with col1:
-            st.markdown("### Risk Level Distribution")
-            risk_counts = gdf['risk_level'].value_counts().sort_index()
-            fig = px.pie(risk_counts,
-                         names=risk_counts.index,
-                         values=risk_counts.values,
-                         hole=0.4,
-                         color=risk_counts.index,
-                         color_discrete_sequence=['#228B22', '#9ACD32', '#FFD700', '#FF8C00', '#DC143C'])
-            st.plotly_chart(fig, use_container_width=True)
-
-        with col2:
-            st.markdown("### Risk Level by Location Type")
-            if label_col in gdf.columns:
-                fig = px.histogram(gdf, x='risk_level', color=label_col,
-                                   barmode='group',
-                                   color_discrete_sequence=['#1f77b4', '#ff7f0e'],
-                                   labels={'risk_level': 'Risk Level', 'count': 'Number of Locations'},
-                                   category_orders={"risk_level": ['Very Low', 'Low', 'Moderate', 'High', 'Very High']})
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.warning(f"Cannot show by location type - label column '{label_col}' not found")
-
-        # Download results
-        st.subheader("Download Results")
-        if st.button("Export Susceptibility Map Data"):
-            # Create a download version without geometry column
-            if isinstance(gdf, gpd.GeoDataFrame):
-                download_data = gdf.drop(columns=['geometry', 'color']) if 'geometry' in gdf.columns else gdf.copy()
-            else:
-                download_data = gdf.drop(columns=['color'], errors='ignore')
-
-            csv = download_data.to_csv(index=False)
-            st.download_button(
-                label="Download CSV",
-                data=csv,
-                file_name='flood_susceptibility.csv',
-                mime='text/csv',
-            )
-        else:
-            st.warning("No data available. Please process data in the first tab and train models.")
+        st.warning("Please process data and train models before generating the susceptibility map.")
 
 # Footer
-    st.markdown("---")
-    st.markdown("""
-    **Research Paper:** [Towards urban flood susceptibility mapping using data-driven models in Berlin, Germany](https://www.tandfonline.com/doi/full/10.1080/19475705.2023.2232299)  
-    **GitHub Repository:** [Machine Learning for Flood Susceptibility](https://github.com/omarseleem92/Machine_learning_for_flood_susceptibility)  
-    **Data Source:** [Berlin Open Data Portal](https://daten.berlin.de/)
-    """)
+st.markdown("---")
+st.markdown("""
+**Research Paper:** [Towards urban flood susceptibility mapping using data-driven models in Berlin, Germany](https://www.tandfonline.com/doi/full/10.1080/19475705.2023.2232299)  
+**GitHub Repository:** [Machine Learning for Flood Susceptibility](https://github.com/omarseleem92/Machine_learning_for_flood_susceptibility)  
+**Data Source:** [Berlin Open Data Portal](https://daten.berlin.de/)
+""")
