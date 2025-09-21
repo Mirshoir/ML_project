@@ -1806,7 +1806,7 @@ with tab6:
         )
 
         # Render map inside Streamlit
-        m.to_streamlit(height=700)
+        st.write(m.to_streamlit(height=700))
 
         # Legend / Info
         st.info("🔵 Blue = Low flood risk, 🟢 Moderate, 🟡 Elevated, 🔴 High flood risk")
