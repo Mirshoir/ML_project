@@ -1868,21 +1868,27 @@ with tab5:
                 # Show map in Streamlit
                 m.to_streamlit(height=600)
 
-            if some_condition:
-
-                if another_condition:
-
-                    st.success("Raster generated")
-
-                else:
-
-                    st.error("Failed to generate susceptibility raster")
-
             else:
+                st.error("Failed to generate susceptibility raster")
 
-                # Simulated probabilities for CNN
+    if some_condition:
 
-                points_data['flood_prob'] = np.random.random(len(points_data))
+        if another_condition:
+
+            st.success("Raster generated")
+
+        else:
+
+            st.error("Failed to generate susceptibility raster")
+
+    else:
+
+        # Simulated probabilities for CNN
+
+        points_data['flood_prob'] = np.random.random(len(points_data))
+
+        # Create GeoDataFrame
+        gdf = points_data.copy()
 
         # Ensure we have a valid CRS
         if gdf.crs is None:
