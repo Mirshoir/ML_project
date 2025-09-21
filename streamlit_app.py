@@ -1824,39 +1824,6 @@ with tab5:
         else:
             st.warning("Please process data and train models before generating the susceptibility map.")
 
-            # Add legend manually with HTML/CSS
-            st.markdown(
-                """
-                <div style="
-                    position: relative;
-                    background: white;
-                    padding: 10px;
-                    border-radius: 5px;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-                    width: 160px;
-                    margin-top: -100px;
-                ">
-                    <b>Hazard Levels</b><br>
-                    <div style="display:flex;align-items:center;">
-                        <div style="width:20px;height:20px;background:rgb(237,248,251);margin-right:8px;"></div>Very Low
-                    </div>
-                    <div style="display:flex;align-items:center;">
-                        <div style="width:20px;height:20px;background:rgb(178,226,226);margin-right:8px;"></div>Low
-                    </div>
-                    <div style="display:flex;align-items:center;">
-                        <div style="width:20px;height:20px;background:rgb(102,194,164);margin-right:8px;"></div>Moderate
-                    </div>
-                    <div style="display:flex;align-items:center;">
-                        <div style="width:20px;height:20px;background:rgb(44,162,95);margin-right:8px;"></div>High
-                    </div>
-                    <div style="display:flex;align-items:center;">
-                        <div style="width:20px;height:20px;background:rgb(0,109,44);margin-right:8px;"></div>Very High
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
             if "flood_prob" in points_data.columns:
 
 
@@ -1901,16 +1868,21 @@ with tab5:
                 # Show map in Streamlit
                 m.to_streamlit(height=600)
 
+            if some_condition:
+
+                if another_condition:
+
+                    st.success("Raster generated")
+
+                else:
+
+                    st.error("Failed to generate susceptibility raster")
+
             else:
-                st.error("Failed to generate susceptibility raster")
 
+                # Simulated probabilities for CNN
 
-        else:
-            # Simulated probabilities for CNN
-            points_data['flood_prob'] = np.random.random(len(points_data))
-
-        # Create GeoDataFrame
-        gdf = points_data.copy()
+                points_data['flood_prob'] = np.random.random(len(points_data))
 
         # Ensure we have a valid CRS
         if gdf.crs is None:
@@ -2133,9 +2105,9 @@ with tab5:
             st.warning("No data available. Please process data in the first tab and train models.")
 
 # Footer
-st.markdown("---")
-st.markdown("""
-**Research Paper:** [Towards urban flood susceptibility mapping using data-driven models in Berlin, Germany](https://www.tandfonline.com/doi/full/10.1080/19475705.2023.2232299)  
-**GitHub Repository:** [Machine Learning for Flood Susceptibility](https://github.com/omarseleem92/Machine_learning_for_flood_susceptibility)  
-**Data Source:** [Berlin Open Data Portal](https://daten.berlin.de/)
-""")
+    st.markdown("---")
+    st.markdown("""
+    **Research Paper:** [Towards urban flood susceptibility mapping using data-driven models in Berlin, Germany](https://www.tandfonline.com/doi/full/10.1080/19475705.2023.2232299)  
+    **GitHub Repository:** [Machine Learning for Flood Susceptibility](https://github.com/omarseleem92/Machine_learning_for_flood_susceptibility)  
+    **Data Source:** [Berlin Open Data Portal](https://daten.berlin.de/)
+    """)
