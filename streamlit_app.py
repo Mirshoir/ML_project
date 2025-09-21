@@ -426,8 +426,8 @@ def process_shapefile_and_raster(points_shp_path, composite_raster_path, buffer_
         os.makedirs(divided_dir, exist_ok=True)
 
         # Create directories for clipped rasters
-        flooded_dir = os.path.join(output_dir, "Predictive_features", "Flooded")
-        not_flooded_dir = os.path.join(output_dir, "Predictive_features", "NotFlooded")
+        flooded_dir = os.path.join(output_dir,  "Flooded")
+        not_flooded_dir = os.path.join(output_dir,"NotFlooded")
         os.makedirs(flooded_dir, exist_ok=True)
         os.makedirs(not_flooded_dir, exist_ok=True)
 
